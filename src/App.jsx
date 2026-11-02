@@ -207,12 +207,18 @@ function App() {
   const totalRevenue = initialOrders.reduce((sum, order) => sum + order.total, 0);
 
   const addToCart = (product) => {
+    const stockLimit = Number(product.stock ?? 0);
+    if (stockLimit <= 0) {
+      setCustomerStatus('This item is currently out of stock.');
+      return;
+    }
+
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
       if (existing) {
         const nextQty = existing.qty + 1;
-        const stockLimit = product.stock ?? 100;
         if (nextQty > stockLimit) {
+          setCustomerStatus(`Only ${stockLimit} unit(s) left in stock.`);
           return current;
         }
         return current.map((item) =>
@@ -220,7 +226,6 @@ function App() {
         );
       }
 
-      const stockLimit = product.stock ?? 100;
       return [...current, { ...product, qty: 1, stock: stockLimit }];
     });
   };
@@ -314,6 +319,17 @@ function App() {
       setCustomerStatus('Please complete all checkout details to place your order.');
       return;
     }
+
+    setProducts((currentProducts) =>
+      currentProducts.map((product) => {
+        const matchingItem = cart.find((cartItem) => cartItem.id === product.id);
+        if (!matchingItem) return product;
+        return {
+          ...product,
+          stock: Math.max(0, Number(product.stock ?? 0) - Number(matchingItem.qty ?? 0)),
+        };
+      }),
+    );
 
     setCart([]);
     setShowCheckout(false);
