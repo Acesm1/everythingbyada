@@ -4,6 +4,7 @@ import { AdminDashboard } from './admin/AdminDashboard';
 const categories = ['All', 'Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'everythingbyada123';
+const PAYSTACK_PUBLIC_KEY = 'pk_test_your_paystack_public_key_here';
 
 const productCatalog = [
   {
@@ -159,7 +160,7 @@ function App() {
     email: '',
     address: '',
     city: '',
-    payment: 'Card',
+    payment: 'Paystack',
   });
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -242,6 +243,60 @@ function App() {
     );
   };
 
+  const finalizeCheckout = () => {
+    setProducts((currentProducts) =>
+      currentProducts.map((product) => {
+        const matchingItem = cart.find((cartItem) => cartItem.id === product.id);
+        if (!matchingItem) return product;
+        return {
+          ...product,
+          stock: Math.max(0, Number(product.stock ?? 0) - Number(matchingItem.qty ?? 0)),
+        };
+      }),
+    );
+
+    setCart([]);
+    setShowCheckout(false);
+    setCurrentView('store');
+    setCustomerStatus(`Order placed for ${checkoutForm.name}. We will contact you soon.`);
+    setCheckoutForm({ name: '', email: '', address: '', city: '', payment: 'Paystack' });
+  };
+
+  const openPaystackPayment = () => {
+    if (!window.PaystackPop) {
+      setCustomerStatus('Paystack is not available right now. Please refresh or choose a different payment method.');
+      return;
+    }
+
+    if (PAYSTACK_PUBLIC_KEY.includes('your_paystack_public_key_here')) {
+      setCustomerStatus('Add your Paystack public key in App.jsx to enable live payment.');
+      return;
+    }
+
+    const amountInKobo = Math.round(total * 100);
+    const firstName = checkoutForm.name.trim().split(' ')[0] || 'Customer';
+    const lastName = checkoutForm.name.trim().split(' ').slice(1).join(' ') || '';
+
+    const handler = window.PaystackPop.setup({
+      key: PAYSTACK_PUBLIC_KEY,
+      email: checkoutForm.email,
+      amount: amountInKobo,
+      currency: 'NGN',
+      ref: `EB-${Date.now()}`,
+      firstname: firstName,
+      lastname: lastName,
+      onClose: () => {
+        setCustomerStatus('Payment cancelled. You can retry or choose another payment method.');
+      },
+      callback: (response) => {
+        setCustomerStatus(`Payment successful! Reference: ${response.reference}.`);
+        finalizeCheckout();
+      },
+    });
+
+    handler.openIframe();
+  };
+
   const handleLogin = (event) => {
     event.preventDefault();
     if (
@@ -320,22 +375,12 @@ function App() {
       return;
     }
 
-    setProducts((currentProducts) =>
-      currentProducts.map((product) => {
-        const matchingItem = cart.find((cartItem) => cartItem.id === product.id);
-        if (!matchingItem) return product;
-        return {
-          ...product,
-          stock: Math.max(0, Number(product.stock ?? 0) - Number(matchingItem.qty ?? 0)),
-        };
-      }),
-    );
+    if (checkoutForm.payment === 'Paystack') {
+      openPaystackPayment();
+      return;
+    }
 
-    setCart([]);
-    setShowCheckout(false);
-    setCurrentView('store');
-    setCustomerStatus(`Order placed for ${checkoutForm.name}. We will contact you soon.`);
-    setCheckoutForm({ name: '', email: '', address: '', city: '', payment: 'Card' });
+    finalizeCheckout();
   };
 
   const renderAdminLogin = () => (
@@ -567,11 +612,31 @@ function App() {
                       setCheckoutForm((current) => ({ ...current, payment: event.target.value }))
                     }
                   >
-                    <option value="Card">Card</option>
+                    <option value="Paystack">Paystack</option>
                     <option value="Bank transfer">Bank transfer</option>
                     <option value="Cash on delivery">Cash on delivery</option>
                   </select>
                 </label>
+
+                {checkoutForm.payment === 'Bank transfer' && (
+                  <div
+                    style={{
+                      background: '#f9f3ff',
+                      border: '1px solid #e6d9ff',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                      marginTop: '4px',
+                      color: '#3f2b53',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    <strong>Bank transfer details</strong>
+                    <div>Bank: Access Bank</div>
+                    <div>Account name: Everything By Ada</div>
+                    <div>Account number: 0012345678</div>
+                    <div>Reference: use your order name</div>
+                  </div>
+                )}
 
                 <button type="submit" className="primary-btn full-width">
                   Place order
