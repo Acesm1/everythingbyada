@@ -4,6 +4,7 @@ import { AdminDashboard } from './admin/AdminDashboard';
 const categories = ['All', 'Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'everythingbyada123';
+const PAYSTACK_PUBLIC_KEY = 'pk_test_your_paystack_public_key_here';
 
 const productCatalog = [
   {
@@ -17,6 +18,7 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
     feature: 'Belly sculpt',
+    stock: 18,
   },
   {
     id: 2,
@@ -29,6 +31,7 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80',
     feature: 'Natural curve support',
+    stock: 24,
   },
   {
     id: 3,
@@ -41,6 +44,7 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80',
     feature: 'Daily cleanse',
+    stock: 32,
   },
   {
     id: 4,
@@ -53,6 +57,7 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80',
     feature: 'Skin renewal',
+    stock: 26,
   },
   {
     id: 5,
@@ -65,6 +70,7 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80',
     feature: 'Posture support',
+    stock: 12,
   },
   {
     id: 6,
@@ -77,6 +83,7 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
     feature: 'Confidence boost',
+    stock: 15,
   },
 ];
 
@@ -141,9 +148,33 @@ function App() {
   const [cart, setCart] = useState([]);
   const [adminForm, setAdminForm] = useState({ username: '', password: '' });
   const [authError, setAuthError] = useState('');
+  const [customerForm, setCustomerForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    mode: 'login',
+  });
+  const [customerStatus, setCustomerStatus] = useState('');
+  const [checkoutForm, setCheckoutForm] = useState({
+    name: '',
+    email: '',
+    address: '',
+    city: '',
+    payment: 'Paystack',
+  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('everythingbyada_admin') === 'true';
+  });
+  const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('everythingbyada_customer') === 'true';
+  });
+  const [customerName, setCustomerName] = useState(() => {
+    if (typeof window === 'undefined') return 'Guest';
+    return localStorage.getItem('everythingbyada_customer_name') || 'Guest';
   });
 
   useEffect(() => {
@@ -152,41 +183,118 @@ function App() {
     }
   }, [isAdminLoggedIn]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('everythingbyada_customer', String(isCustomerLoggedIn));
+      localStorage.setItem('everythingbyada_customer_name', customerName);
+    }
+  }, [isCustomerLoggedIn, customerName]);
+
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesCategory =
         selectedCategory === 'All' || product.category === selectedCategory;
-      const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
+      const query = search.toLowerCase().trim();
+      const matchesSearch =
+        !query || product.name.toLowerCase().includes(query) || product.category.toLowerCase().includes(query);
       return matchesCategory && matchesSearch;
     });
   }, [products, search, selectedCategory]);
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const shipping = subtotal === 0 ? 0 : subtotal >= 120 ? 0 : 12;
+  const total = subtotal + shipping;
   const totalRevenue = initialOrders.reduce((sum, order) => sum + order.total, 0);
 
   const addToCart = (product) => {
+    const stockLimit = Number(product.stock ?? 0);
+    if (stockLimit <= 0) {
+      setCustomerStatus('This item is currently out of stock.');
+      return;
+    }
+
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
       if (existing) {
+        const nextQty = existing.qty + 1;
+        if (nextQty > stockLimit) {
+          setCustomerStatus(`Only ${stockLimit} unit(s) left in stock.`);
+          return current;
+        }
         return current.map((item) =>
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item,
+          item.id === product.id ? { ...item, qty: nextQty } : item,
         );
       }
-      return [...current, { ...product, qty: 1 }];
+
+      return [...current, { ...product, qty: 1, stock: stockLimit }];
     });
   };
 
   const updateCartQty = (id, direction) => {
     setCart((current) =>
       current
-        .map((item) =>
-          item.id === id
-            ? { ...item, qty: Math.max(0, item.qty + direction) }
-            : item,
-        )
+        .map((item) => {
+          if (item.id !== id) return item;
+          const nextQty = Math.max(0, item.qty + direction);
+          return { ...item, qty: nextQty };
+        })
         .filter((item) => item.qty > 0),
     );
+  };
+
+  const finalizeCheckout = () => {
+    setProducts((currentProducts) =>
+      currentProducts.map((product) => {
+        const matchingItem = cart.find((cartItem) => cartItem.id === product.id);
+        if (!matchingItem) return product;
+        return {
+          ...product,
+          stock: Math.max(0, Number(product.stock ?? 0) - Number(matchingItem.qty ?? 0)),
+        };
+      }),
+    );
+
+    setCart([]);
+    setShowCheckout(false);
+    setCurrentView('store');
+    setCustomerStatus(`Order placed for ${checkoutForm.name}. We will contact you soon.`);
+    setCheckoutForm({ name: '', email: '', address: '', city: '', payment: 'Paystack' });
+  };
+
+  const openPaystackPayment = () => {
+    if (!window.PaystackPop) {
+      setCustomerStatus('Paystack is not available right now. Please refresh or choose a different payment method.');
+      return;
+    }
+
+    if (PAYSTACK_PUBLIC_KEY.includes('your_paystack_public_key_here')) {
+      setCustomerStatus('Add your Paystack public key in App.jsx to enable live payment.');
+      return;
+    }
+
+    const amountInKobo = Math.round(total * 100);
+    const firstName = checkoutForm.name.trim().split(' ')[0] || 'Customer';
+    const lastName = checkoutForm.name.trim().split(' ').slice(1).join(' ') || '';
+
+    const handler = window.PaystackPop.setup({
+      key: PAYSTACK_PUBLIC_KEY,
+      email: checkoutForm.email,
+      amount: amountInKobo,
+      currency: 'NGN',
+      ref: `EB-${Date.now()}`,
+      firstname: firstName,
+      lastname: lastName,
+      onClose: () => {
+        setCustomerStatus('Payment cancelled. You can retry or choose another payment method.');
+      },
+      callback: (response) => {
+        setCustomerStatus(`Payment successful! Reference: ${response.reference}.`);
+        finalizeCheckout();
+      },
+    });
+
+    handler.openIframe();
   };
 
   const handleLogin = (event) => {
@@ -206,10 +314,6 @@ function App() {
   };
 
   const handleAdminButton = () => {
-    if (!isAdminLoggedIn) {
-      setCurrentView('admin');
-      return;
-    }
     setCurrentView('admin');
   };
 
@@ -217,6 +321,66 @@ function App() {
     setIsAdminLoggedIn(false);
     setCurrentView('store');
     setAuthError('');
+  };
+
+  const handleCustomerSubmit = (event) => {
+    event.preventDefault();
+
+    if (!customerForm.email.trim() || !customerForm.password.trim()) {
+      setCustomerStatus('Please enter a valid email and password.');
+      return;
+    }
+
+    if (customerForm.mode === 'register' && !customerForm.name.trim()) {
+      setCustomerStatus('Please enter your full name to create an account.');
+      return;
+    }
+
+    const nextName =
+      (customerForm.name || customerForm.email.split('@')[0] || 'Customer').trim();
+
+    setCustomerName(nextName);
+    setIsCustomerLoggedIn(true);
+    setCustomerStatus(
+      customerForm.mode === 'register'
+        ? `Your account is ready, ${nextName}.`
+        : `Welcome back, ${nextName}!`,
+    );
+    setCustomerForm({ name: '', email: '', password: '', mode: customerForm.mode });
+    setShowAuthModal(false);
+  };
+
+  const handleCustomerLogout = () => {
+    setIsCustomerLoggedIn(false);
+    setCustomerName('Guest');
+    setCustomerStatus('You have signed out.');
+    setShowAuthModal(false);
+  };
+
+  const handleCheckoutSubmit = (event) => {
+    event.preventDefault();
+
+    if (!cart.length) {
+      setCustomerStatus('Your cart is empty.');
+      return;
+    }
+
+    if (
+      !checkoutForm.name.trim() ||
+      !checkoutForm.email.trim() ||
+      !checkoutForm.address.trim() ||
+      !checkoutForm.city.trim()
+    ) {
+      setCustomerStatus('Please complete all checkout details to place your order.');
+      return;
+    }
+
+    if (checkoutForm.payment === 'Paystack') {
+      openPaystackPayment();
+      return;
+    }
+
+    finalizeCheckout();
   };
 
   const renderAdminLogin = () => (
@@ -290,13 +454,232 @@ function App() {
         </nav>
 
         <div className="header-actions">
-          <button className="ghost-btn">Sign In</button>
-          <button className="cart-btn" aria-label="Shopping cart">
+          {isCustomerLoggedIn ? (
+            <button className="ghost-btn" onClick={handleCustomerLogout}>
+              Hi, {customerName.split(' ')[0] || 'Customer'}
+            </button>
+          ) : (
+            <button className="ghost-btn" onClick={() => setShowAuthModal(true)}>
+              Sign In
+            </button>
+          )}
+          <button className="cart-btn" aria-label="Shopping cart" onClick={() => setShowCheckout(true)}>
             <span>Cart</span>
             <strong>{cartCount}</strong>
           </button>
         </div>
       </header>
+
+      {customerStatus && (
+        <div className="status-banner" role="status">
+          {customerStatus}
+        </div>
+      )}
+
+      {showAuthModal && (
+        <div className="auth-modal" role="dialog" aria-modal="true">
+          <div className="auth-card">
+            <div className="auth-header">
+              <h3>{customerForm.mode === 'login' ? 'Customer sign in' : 'Create account'}</h3>
+              <button type="button" className="close-btn" onClick={() => setShowAuthModal(false)}>
+                ×
+              </button>
+            </div>
+
+            <form className="auth-form" onSubmit={handleCustomerSubmit}>
+              {customerForm.mode === 'register' && (
+                <label>
+                  Full name
+                  <input
+                    type="text"
+                    value={customerForm.name}
+                    onChange={(event) =>
+                      setCustomerForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    placeholder="Jane Doe"
+                  />
+                </label>
+              )}
+
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={customerForm.email}
+                  onChange={(event) =>
+                    setCustomerForm((current) => ({ ...current, email: event.target.value }))
+                  }
+                  placeholder="you@example.com"
+                />
+              </label>
+
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={customerForm.password}
+                  onChange={(event) =>
+                    setCustomerForm((current) => ({ ...current, password: event.target.value }))
+                  }
+                  placeholder="Enter password"
+                />
+              </label>
+
+              <button type="submit" className="primary-btn full-width">
+                {customerForm.mode === 'login' ? 'Login' : 'Register'}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              className="text-link"
+              onClick={() =>
+                setCustomerForm((current) => ({
+                  ...current,
+                  mode: current.mode === 'login' ? 'register' : 'login',
+                }))
+              }
+            >
+              {customerForm.mode === 'login'
+                ? 'Need an account? Create one'
+                : 'Already have an account? Sign in'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCheckout && (
+        <div className="checkout-modal" role="dialog" aria-modal="true">
+          <div className="checkout-card">
+            <div className="auth-header">
+              <h3>Secure checkout</h3>
+              <button type="button" className="close-btn" onClick={() => setShowCheckout(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="checkout-layout">
+              <form className="checkout-form" onSubmit={handleCheckoutSubmit}>
+                <label>
+                  Full name
+                  <input
+                    type="text"
+                    value={checkoutForm.name}
+                    onChange={(event) =>
+                      setCheckoutForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    placeholder="Jane Doe"
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={checkoutForm.email}
+                    onChange={(event) =>
+                      setCheckoutForm((current) => ({ ...current, email: event.target.value }))
+                    }
+                    placeholder="you@example.com"
+                  />
+                </label>
+                <label>
+                  Delivery address
+                  <input
+                    type="text"
+                    value={checkoutForm.address}
+                    onChange={(event) =>
+                      setCheckoutForm((current) => ({ ...current, address: event.target.value }))
+                    }
+                    placeholder="123 Main Street"
+                  />
+                </label>
+                <label>
+                  City
+                  <input
+                    type="text"
+                    value={checkoutForm.city}
+                    onChange={(event) =>
+                      setCheckoutForm((current) => ({ ...current, city: event.target.value }))
+                    }
+                    placeholder="Lagos"
+                  />
+                </label>
+                <label>
+                  Payment method
+                  <select
+                    value={checkoutForm.payment}
+                    onChange={(event) =>
+                      setCheckoutForm((current) => ({ ...current, payment: event.target.value }))
+                    }
+                  >
+                    <option value="Paystack">Paystack</option>
+                    <option value="Bank transfer">Bank transfer</option>
+                    <option value="Cash on delivery">Cash on delivery</option>
+                  </select>
+                </label>
+
+                {checkoutForm.payment === 'Bank transfer' && (
+                  <div
+                    style={{
+                      background: '#f9f3ff',
+                      border: '1px solid #e6d9ff',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                      marginTop: '4px',
+                      color: '#3f2b53',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    <strong>Bank transfer details</strong>
+                    <div>Bank: Access Bank</div>
+                    <div>Account name: Everything By Ada</div>
+                    <div>Account number: 0012345678</div>
+                    <div>Reference: use your order name</div>
+                  </div>
+                )}
+
+                <button type="submit" className="primary-btn full-width">
+                  Place order
+                </button>
+              </form>
+
+              <aside className="checkout-summary">
+                <h4>Order summary</h4>
+                {cart.length === 0 ? (
+                  <p className="empty-cart">Your cart is empty.</p>
+                ) : (
+                  <>
+                    {cart.map((item) => (
+                      <div key={item.id} className="checkout-item-row">
+                        <div>
+                          <strong>{item.name}</strong>
+                          <span>
+                            {item.qty} × ${item.price}
+                          </span>
+                        </div>
+                        <strong>${item.price * item.qty}</strong>
+                      </div>
+                    ))}
+                    <div className="checkout-divider" />
+                    <div className="checkout-totals">
+                      <span>Subtotal</span>
+                      <strong>${subtotal}</strong>
+                    </div>
+                    <div className="checkout-totals">
+                      <span>Shipping</span>
+                      <strong>{shipping === 0 ? 'Free' : `$${shipping}`}</strong>
+                    </div>
+                    <div className="checkout-totals total">
+                      <span>Total</span>
+                      <strong>${total}</strong>
+                    </div>
+                  </>
+                )}
+              </aside>
+            </div>
+          </div>
+        </div>
+      )}
 
       {currentView === 'admin' && !isAdminLoggedIn ? (
         renderAdminLogin()
@@ -325,7 +708,7 @@ function App() {
 
               <div className="cta-row">
                 <button className="primary-btn" onClick={() => setCurrentView('store')}>Shop Now</button>
-                <button className="secondary-btn">Explore Deals</button>
+                <button className="secondary-btn" onClick={() => setShowCheckout(true)}>Checkout</button>
               </div>
 
               <div className="stat-row">
@@ -422,7 +805,7 @@ function App() {
                     <div className="product-info">
                       <div className="meta-row">
                         <span>{product.category}</span>
-                        <span>{product.feature}</span>
+                        <span>{product.stock ?? 0} left</span>
                       </div>
                       <h4>{product.name}</h4>
                       <div className="rating-row">
@@ -434,6 +817,10 @@ function App() {
                       <div className="price-row">
                         <strong>${product.price}</strong>
                         <span>${product.oldPrice}</span>
+                      </div>
+                      <div className="stock-row">
+                        <span>In stock</span>
+                        <strong>{product.stock ?? 0}</strong>
                       </div>
                       <button className="add-btn" onClick={() => addToCart(product)}>
                         Add to cart
@@ -474,13 +861,15 @@ function App() {
                       </div>
                       <div className="checkout-row">
                         <span>Shipping</span>
-                        <strong>Free</strong>
+                        <strong>{shipping === 0 ? 'Free' : `$${shipping}`}</strong>
                       </div>
                       <div className="checkout-row total">
                         <span>Total</span>
-                        <strong>${subtotal}</strong>
+                        <strong>${total}</strong>
                       </div>
-                      <button className="primary-btn full-width">Checkout</button>
+                      <button className="primary-btn full-width" onClick={() => setShowCheckout(true)}>
+                        Checkout
+                      </button>
                     </div>
                   </>
                 )}
