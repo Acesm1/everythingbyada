@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AdminDashboard } from './admin/AdminDashboard';
 
-const categories = ['All', 'Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
+const DEFAULT_CATEGORIES = ['Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'everythingbyada123';
-const PAYSTACK_PUBLIC_KEY = 'pk_test_your_paystack_public_key_here';
 
 const productCatalog = [
   {
@@ -18,7 +17,8 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
     feature: 'Belly sculpt',
-    stock: 18,
+    description:
+      'A premium body wrap blend designed to support contouring, smooth firmness, and daily confidence in your body goals.',
   },
   {
     id: 2,
@@ -31,7 +31,8 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80',
     feature: 'Natural curve support',
-    stock: 24,
+    description:
+      'A nutrient-rich formula to help support healthy weight gain, energy, and fuller body curves without harsh additives.',
   },
   {
     id: 3,
@@ -44,7 +45,8 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80',
     feature: 'Daily cleanse',
-    stock: 32,
+    description:
+      'Gentle herbal detox support to help improve digestion, reduce bloating, and refresh your daily wellness routine.',
   },
   {
     id: 4,
@@ -57,7 +59,8 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80',
     feature: 'Skin renewal',
-    stock: 26,
+    description:
+      'Deeply nourishing body oil that brings softness, skin glow, and hydration for a radiant, healthy-looking finish.',
   },
   {
     id: 5,
@@ -70,7 +73,8 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80',
     feature: 'Posture support',
-    stock: 12,
+    description:
+      'A supportive slimming belt designed for comfort, waist shaping, and daily confidence while staying active.',
   },
   {
     id: 6,
@@ -83,7 +87,8 @@ const productCatalog = [
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
     feature: 'Confidence boost',
-    stock: 15,
+    description:
+      'A complete recovery and self-care kit created for post-workout care, skin softness, and a more confident everyday glow.',
   },
 ];
 
@@ -140,42 +145,85 @@ const dashboardCards = [
   },
 ];
 
+const defaultProfile = {
+  name: '',
+  email: '',
+  password: '',
+  phone: '',
+  address: '',
+  city: '',
+};
+
+function readStorage(key, fallback) {
+  if (typeof window === 'undefined') return fallback;
+  const raw = localStorage.getItem(key);
+  if (!raw) return fallback;
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed ?? fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeStorage(key, value) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+}
+
+function routeFromPath(pathname) {
+  const cleanPath = pathname || '/';
+  if (cleanPath.startsWith('/admin')) return 'admin';
+  if (cleanPath.startsWith('/account')) return 'account';
+  if (cleanPath.startsWith('/product/')) return 'product';
+  return 'store';
+}
+
 function App() {
-  const [currentView, setCurrentView] = useState('store');
-  const [products, setProducts] = useState(productCatalog);
+  const [currentView, setCurrentView] = useState(() => {
+    if (typeof window === 'undefined') return 'store';
+    return routeFromPath(window.location.pathname);
+  });
+  const [selectedProductId, setSelectedProductId] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const match = window.location.pathname.match(/^\/product\/(\d+)$/);
+    return match ? Number(match[1]) : null;
+  });
+  const [products, setProducts] = useState(() =>
+    readStorage('everythingbyada_products', productCatalog),
+  );
+  const [categories, setCategories] = useState(() =>
+    readStorage('everythingbyada_categories', DEFAULT_CATEGORIES),
+  );
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState([]);
   const [adminForm, setAdminForm] = useState({ username: '', password: '' });
   const [authError, setAuthError] = useState('');
-  const [customerForm, setCustomerForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    mode: 'login',
-  });
-  const [customerStatus, setCustomerStatus] = useState('');
-  const [checkoutForm, setCheckoutForm] = useState({
-    name: '',
-    email: '',
-    address: '',
-    city: '',
-    payment: 'Paystack',
-  });
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showCheckout, setShowCheckout] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('everythingbyada_admin') === 'true';
   });
-  const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('everythingbyada_customer') === 'true';
-  });
-  const [customerName, setCustomerName] = useState(() => {
-    if (typeof window === 'undefined') return 'Guest';
-    return localStorage.getItem('everythingbyada_customer_name') || 'Guest';
-  });
+  const [accountMode, setAccountMode] = useState('login');
+  const [customerProfile, setCustomerProfile] = useState(() =>
+    readStorage('everythingbyada_customer', null),
+  );
+  const [customerForm, setCustomerForm] = useState(() =>
+    readStorage('everythingbyada_customer', defaultProfile),
+  );
+  const [accountMessage, setAccountMessage] = useState('');
+
+  const categoryFilters = useMemo(() => ['All', ...categories], [categories]);
+
+  useEffect(() => {
+    writeStorage('everythingbyada_products', products);
+  }, [products]);
+
+  useEffect(() => {
+    writeStorage('everythingbyada_categories', categories);
+  }, [categories]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -184,117 +232,89 @@ function App() {
   }, [isAdminLoggedIn]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('everythingbyada_customer', String(isCustomerLoggedIn));
-      localStorage.setItem('everythingbyada_customer_name', customerName);
+    if (customerProfile) {
+      writeStorage('everythingbyada_customer', customerProfile);
     }
-  }, [isCustomerLoggedIn, customerName]);
+  }, [customerProfile]);
+
+  useEffect(() => {
+    const syncViewFromLocation = () => {
+      const nextView = routeFromPath(window.location.pathname);
+      setCurrentView(nextView);
+      if (nextView === 'product') {
+        const match = window.location.pathname.match(/^\/product\/(\d+)$/);
+        setSelectedProductId(match ? Number(match[1]) : null);
+      } else if (nextView !== 'product') {
+        setSelectedProductId(null);
+      }
+    };
+
+    window.addEventListener('popstate', syncViewFromLocation);
+    syncViewFromLocation();
+
+    return () => window.removeEventListener('popstate', syncViewFromLocation);
+  }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesCategory =
         selectedCategory === 'All' || product.category === selectedCategory;
-      const query = search.toLowerCase().trim();
-      const matchesSearch =
-        !query || product.name.toLowerCase().includes(query) || product.category.toLowerCase().includes(query);
+      const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
       return matchesCategory && matchesSearch;
     });
   }, [products, search, selectedCategory]);
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const shipping = subtotal === 0 ? 0 : subtotal >= 120 ? 0 : 12;
-  const total = subtotal + shipping;
   const totalRevenue = initialOrders.reduce((sum, order) => sum + order.total, 0);
 
-  const addToCart = (product) => {
-    const stockLimit = Number(product.stock ?? 0);
-    if (stockLimit <= 0) {
-      setCustomerStatus('This item is currently out of stock.');
-      return;
-    }
+  const selectedProduct = useMemo(
+    () => products.find((product) => product.id === selectedProductId) ?? null,
+    [products, selectedProductId],
+  );
 
+  const relatedProducts = useMemo(() => {
+    if (!selectedProduct) return [];
+    return products
+      .filter(
+        (product) => product.category === selectedProduct.category && product.id !== selectedProduct.id,
+      )
+      .slice(0, 3);
+  }, [products, selectedProduct]);
+
+  const navigateTo = (path) => {
+    const safePath = path || '/';
+    window.history.pushState({}, '', safePath);
+    const nextView = routeFromPath(safePath);
+    setCurrentView(nextView);
+    if (nextView === 'product') {
+      const match = safePath.match(/^\/product\/(\d+)$/);
+      setSelectedProductId(match ? Number(match[1]) : null);
+    } else {
+      setSelectedProductId(null);
+    }
+  };
+
+  const addToCart = (product) => {
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
       if (existing) {
-        const nextQty = existing.qty + 1;
-        if (nextQty > stockLimit) {
-          setCustomerStatus(`Only ${stockLimit} unit(s) left in stock.`);
-          return current;
-        }
         return current.map((item) =>
-          item.id === product.id ? { ...item, qty: nextQty } : item,
+          item.id === product.id ? { ...item, qty: item.qty + 1 } : item,
         );
       }
-
-      return [...current, { ...product, qty: 1, stock: stockLimit }];
+      return [...current, { ...product, qty: 1 }];
     });
   };
 
   const updateCartQty = (id, direction) => {
     setCart((current) =>
       current
-        .map((item) => {
-          if (item.id !== id) return item;
-          const nextQty = Math.max(0, item.qty + direction);
-          return { ...item, qty: nextQty };
-        })
+        .map((item) =>
+          item.id === id ? { ...item, qty: Math.max(0, item.qty + direction) } : item,
+        )
         .filter((item) => item.qty > 0),
     );
-  };
-
-  const finalizeCheckout = () => {
-    setProducts((currentProducts) =>
-      currentProducts.map((product) => {
-        const matchingItem = cart.find((cartItem) => cartItem.id === product.id);
-        if (!matchingItem) return product;
-        return {
-          ...product,
-          stock: Math.max(0, Number(product.stock ?? 0) - Number(matchingItem.qty ?? 0)),
-        };
-      }),
-    );
-
-    setCart([]);
-    setShowCheckout(false);
-    setCurrentView('store');
-    setCustomerStatus(`Order placed for ${checkoutForm.name}. We will contact you soon.`);
-    setCheckoutForm({ name: '', email: '', address: '', city: '', payment: 'Paystack' });
-  };
-
-  const openPaystackPayment = () => {
-    if (!window.PaystackPop) {
-      setCustomerStatus('Paystack is not available right now. Please refresh or choose a different payment method.');
-      return;
-    }
-
-    if (PAYSTACK_PUBLIC_KEY.includes('your_paystack_public_key_here')) {
-      setCustomerStatus('Add your Paystack public key in App.jsx to enable live payment.');
-      return;
-    }
-
-    const amountInKobo = Math.round(total * 100);
-    const firstName = checkoutForm.name.trim().split(' ')[0] || 'Customer';
-    const lastName = checkoutForm.name.trim().split(' ').slice(1).join(' ') || '';
-
-    const handler = window.PaystackPop.setup({
-      key: PAYSTACK_PUBLIC_KEY,
-      email: checkoutForm.email,
-      amount: amountInKobo,
-      currency: 'NGN',
-      ref: `EB-${Date.now()}`,
-      firstname: firstName,
-      lastname: lastName,
-      onClose: () => {
-        setCustomerStatus('Payment cancelled. You can retry or choose another payment method.');
-      },
-      callback: (response) => {
-        setCustomerStatus(`Payment successful! Reference: ${response.reference}.`);
-        finalizeCheckout();
-      },
-    });
-
-    handler.openIframe();
   };
 
   const handleLogin = (event) => {
@@ -307,6 +327,7 @@ function App() {
       setCurrentView('admin');
       setAuthError('');
       setAdminForm({ username: '', password: '' });
+      navigateTo('/admin');
       return;
     }
 
@@ -314,73 +335,75 @@ function App() {
   };
 
   const handleAdminButton = () => {
-    setCurrentView('admin');
+    navigateTo('/admin');
   };
 
   const handleLogout = () => {
     setIsAdminLoggedIn(false);
-    setCurrentView('store');
+    navigateTo('/');
     setAuthError('');
   };
 
-  const handleCustomerSubmit = (event) => {
+  const handleAccountSubmit = (event) => {
     event.preventDefault();
+    const trimmedName = customerForm.name.trim();
+    const trimmedEmail = customerForm.email.trim();
+    const trimmedPassword = customerForm.password.trim();
 
-    if (!customerForm.email.trim() || !customerForm.password.trim()) {
-      setCustomerStatus('Please enter a valid email and password.');
+    if (accountMode === 'register') {
+      if (!trimmedName || !trimmedEmail || !trimmedPassword) {
+        setAccountMessage('Please complete your name, email, and password.');
+        return;
+      }
+
+      const newProfile = {
+        ...customerForm,
+        name: trimmedName,
+        email: trimmedEmail,
+        password: trimmedPassword,
+        phone: customerForm.phone.trim(),
+        address: customerForm.address.trim(),
+        city: customerForm.city.trim(),
+      };
+
+      setCustomerProfile(newProfile);
+      setCustomerForm(newProfile);
+      setAccountMessage('Account created successfully.');
+      setAccountMode('profile');
       return;
     }
 
-    if (customerForm.mode === 'register' && !customerForm.name.trim()) {
-      setCustomerStatus('Please enter your full name to create an account.');
+    if (!trimmedEmail || !trimmedPassword) {
+      setAccountMessage('Please enter your email and password.');
       return;
     }
 
-    const nextName =
-      (customerForm.name || customerForm.email.split('@')[0] || 'Customer').trim();
-
-    setCustomerName(nextName);
-    setIsCustomerLoggedIn(true);
-    setCustomerStatus(
-      customerForm.mode === 'register'
-        ? `Your account is ready, ${nextName}.`
-        : `Welcome back, ${nextName}!`,
-    );
-    setCustomerForm({ name: '', email: '', password: '', mode: customerForm.mode });
-    setShowAuthModal(false);
-  };
-
-  const handleCustomerLogout = () => {
-    setIsCustomerLoggedIn(false);
-    setCustomerName('Guest');
-    setCustomerStatus('You have signed out.');
-    setShowAuthModal(false);
-  };
-
-  const handleCheckoutSubmit = (event) => {
-    event.preventDefault();
-
-    if (!cart.length) {
-      setCustomerStatus('Your cart is empty.');
+    const savedProfile = readStorage('everythingbyada_customer', null);
+    if (!savedProfile) {
+      setAccountMessage('No account found. Please create an account first.');
       return;
     }
 
     if (
-      !checkoutForm.name.trim() ||
-      !checkoutForm.email.trim() ||
-      !checkoutForm.address.trim() ||
-      !checkoutForm.city.trim()
+      savedProfile.email.toLowerCase() === trimmedEmail.toLowerCase() &&
+      savedProfile.password === trimmedPassword
     ) {
-      setCustomerStatus('Please complete all checkout details to place your order.');
+      setCustomerProfile(savedProfile);
+      setCustomerForm(savedProfile);
+      setAccountMessage('Welcome back!');
+      setAccountMode('profile');
       return;
     }
 
-    if (checkoutForm.payment === 'Paystack') {
-      openPaystackPayment();
-      return;
-    }
+    setAccountMessage('Incorrect email or password.');
+  };
 
-    finalizeCheckout();
+  const handleAccountLogout = () => {
+    localStorage.removeItem('everythingbyada_customer');
+    setCustomerProfile(null);
+    setCustomerForm(defaultProfile);
+    setAccountMode('login');
+    setAccountMessage('You have been logged out.');
   };
 
   const renderAdminLogin = () => (
@@ -431,6 +454,258 @@ function App() {
     </main>
   );
 
+  const renderAccountPage = () => {
+    const isLoggedIn = Boolean(customerProfile);
+
+    return (
+      <main className="account-page-shell">
+        <section className="account-card">
+          <div className="account-header-row">
+            <div>
+              <span className="mini-label">My account</span>
+              <h2>{isLoggedIn ? 'Your profile' : 'Welcome back'}</h2>
+            </div>
+            {isLoggedIn && (
+              <button className="secondary-btn" type="button" onClick={handleAccountLogout}>
+                Log out
+              </button>
+            )}
+          </div>
+
+          {!isLoggedIn ? (
+            <div className="account-form-switch">
+              <button
+                type="button"
+                className={accountMode === 'login' ? 'switch-btn active' : 'switch-btn'}
+                onClick={() => setAccountMode('login')}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                className={accountMode === 'register' ? 'switch-btn active' : 'switch-btn'}
+                onClick={() => setAccountMode('register')}
+              >
+                Create account
+              </button>
+            </div>
+          ) : null}
+
+          {isLoggedIn && customerProfile ? (
+            <div className="profile-summary">
+              <div className="profile-badge">Customer profile</div>
+              <h3>{customerProfile.name}</h3>
+              <p>{customerProfile.email}</p>
+              <ul>
+                <li>
+                  <strong>Phone:</strong> {customerProfile.phone || 'Not set'}
+                </li>
+                <li>
+                  <strong>Address:</strong> {customerProfile.address || 'Not set'}
+                </li>
+                <li>
+                  <strong>City:</strong> {customerProfile.city || 'Not set'}
+                </li>
+              </ul>
+            </div>
+          ) : (
+            <form className="account-form" onSubmit={handleAccountSubmit}>
+              {accountMode === 'register' && (
+                <label>
+                  Full name
+                  <input
+                    type="text"
+                    value={customerForm.name}
+                    onChange={(event) =>
+                      setCustomerForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Ada Okafor"
+                  />
+                </label>
+              )}
+
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={customerForm.email}
+                  onChange={(event) =>
+                    setCustomerForm((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  placeholder="you@example.com"
+                />
+              </label>
+
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={customerForm.password}
+                  onChange={(event) =>
+                    setCustomerForm((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder={accountMode === 'register' ? 'Create a password' : 'Enter your password'}
+                />
+              </label>
+
+              {accountMode === 'register' && (
+                <>
+                  <label>
+                    Phone
+                    <input
+                      type="tel"
+                      value={customerForm.phone}
+                      onChange={(event) =>
+                        setCustomerForm((current) => ({
+                          ...current,
+                          phone: event.target.value,
+                        }))
+                      }
+                      placeholder="080-0000-0000"
+                    />
+                  </label>
+
+                  <label>
+                    Address
+                    <input
+                      type="text"
+                      value={customerForm.address}
+                      onChange={(event) =>
+                        setCustomerForm((current) => ({
+                          ...current,
+                          address: event.target.value,
+                        }))
+                      }
+                      placeholder="12 Market Road"
+                    />
+                  </label>
+
+                  <label>
+                    City
+                    <input
+                      type="text"
+                      value={customerForm.city}
+                      onChange={(event) =>
+                        setCustomerForm((current) => ({
+                          ...current,
+                          city: event.target.value,
+                        }))
+                      }
+                      placeholder="Lagos"
+                    />
+                  </label>
+                </>
+              )}
+
+              {accountMessage && <div className="auth-error">{accountMessage}</div>}
+
+              <button type="submit" className="primary-btn full-width">
+                {accountMode === 'register' ? 'Create account' : 'Sign in'}
+              </button>
+            </form>
+          )}
+        </section>
+      </main>
+    );
+  };
+
+  const renderProductDetail = () => {
+    if (!selectedProduct) {
+      return (
+        <main className="product-detail-shell">
+          <div className="product-not-found">
+            <h2>Product not found</h2>
+            <button className="primary-btn" type="button" onClick={() => navigateTo('/')}>
+              Back to shop
+            </button>
+          </div>
+        </main>
+      );
+    }
+
+    return (
+      <main className="product-detail-shell">
+        <button className="back-link" type="button" onClick={() => navigateTo('/')}>
+          ← Back to store
+        </button>
+
+        <section className="product-detail-card">
+          <div className="product-detail-image-wrap">
+            <img src={selectedProduct.image} alt={selectedProduct.name} />
+          </div>
+
+          <div className="product-detail-copy">
+            <span className="mini-label">{selectedProduct.category}</span>
+            <h2>{selectedProduct.name}</h2>
+            <div className="rating-row detail-rating">
+              <strong>★★★★★</strong>
+              <span>
+                {selectedProduct.rating} ({selectedProduct.reviews} reviews)
+              </span>
+            </div>
+
+            <div className="price-row detail-price">
+              <strong>${selectedProduct.price}</strong>
+              <span>${selectedProduct.oldPrice}</span>
+            </div>
+
+            <p className="product-description">{selectedProduct.description}</p>
+
+            <div className="detail-cta-row">
+              <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>
+                Add to cart
+              </button>
+              <button className="secondary-btn" type="button" onClick={() => navigateTo('/')}>
+                Continue shopping
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {relatedProducts.length > 0 && (
+          <section className="related-products">
+            <div className="section-heading compact">
+              <h3>Related products</h3>
+            </div>
+            <div className="related-grid">
+              {relatedProducts.map((product) => (
+                <article
+                  key={product.id}
+                  className="product-card slim"
+                  onClick={() => navigateTo(`/product/${product.id}`)}
+                >
+                  <div className="product-image-wrap">
+                    <img src={product.image} alt={product.name} />
+                  </div>
+                  <div className="product-info">
+                    <div className="meta-row">
+                      <span>{product.category}</span>
+                      <span>{product.feature}</span>
+                    </div>
+                    <h4>{product.name}</h4>
+                    <div className="price-row">
+                      <strong>${product.price}</strong>
+                      <span>${product.oldPrice}</span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    );
+  };
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -446,240 +721,33 @@ function App() {
         </div>
 
         <nav className="main-nav" aria-label="Main navigation">
-          <button className="nav-link" onClick={() => setCurrentView('store')}>Home</button>
-          <button className="nav-link" onClick={() => setCurrentView('store')}>Shop</button>
-          <button className="nav-link" onClick={() => setCurrentView('store')}>Goals</button>
-          <button className="nav-link" onClick={handleAdminButton}>Admin</button>
-          <button className="nav-link" onClick={() => setCurrentView('store')}>Contact</button>
+          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>
+            Home
+          </button>
+          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>
+            Shop
+          </button>
+          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>
+            Goals
+          </button>
+          <button type="button" className="nav-link" onClick={handleAdminButton}>
+            Admin
+          </button>
+          <button type="button" className="nav-link" onClick={() => navigateTo('/account')}>
+            Account
+          </button>
         </nav>
 
         <div className="header-actions">
-          {isCustomerLoggedIn ? (
-            <button className="ghost-btn" onClick={handleCustomerLogout}>
-              Hi, {customerName.split(' ')[0] || 'Customer'}
-            </button>
-          ) : (
-            <button className="ghost-btn" onClick={() => setShowAuthModal(true)}>
-              Sign In
-            </button>
-          )}
-          <button className="cart-btn" aria-label="Shopping cart" onClick={() => setShowCheckout(true)}>
+          <button type="button" className="ghost-btn" onClick={() => navigateTo('/account')}>
+            {customerProfile ? 'Profile' : 'Sign In'}
+          </button>
+          <button type="button" className="cart-btn" aria-label="Shopping cart">
             <span>Cart</span>
             <strong>{cartCount}</strong>
           </button>
         </div>
       </header>
-
-      {customerStatus && (
-        <div className="status-banner" role="status">
-          {customerStatus}
-        </div>
-      )}
-
-      {showAuthModal && (
-        <div className="auth-modal" role="dialog" aria-modal="true">
-          <div className="auth-card">
-            <div className="auth-header">
-              <h3>{customerForm.mode === 'login' ? 'Customer sign in' : 'Create account'}</h3>
-              <button type="button" className="close-btn" onClick={() => setShowAuthModal(false)}>
-                ×
-              </button>
-            </div>
-
-            <form className="auth-form" onSubmit={handleCustomerSubmit}>
-              {customerForm.mode === 'register' && (
-                <label>
-                  Full name
-                  <input
-                    type="text"
-                    value={customerForm.name}
-                    onChange={(event) =>
-                      setCustomerForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                    placeholder="Jane Doe"
-                  />
-                </label>
-              )}
-
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={customerForm.email}
-                  onChange={(event) =>
-                    setCustomerForm((current) => ({ ...current, email: event.target.value }))
-                  }
-                  placeholder="you@example.com"
-                />
-              </label>
-
-              <label>
-                Password
-                <input
-                  type="password"
-                  value={customerForm.password}
-                  onChange={(event) =>
-                    setCustomerForm((current) => ({ ...current, password: event.target.value }))
-                  }
-                  placeholder="Enter password"
-                />
-              </label>
-
-              <button type="submit" className="primary-btn full-width">
-                {customerForm.mode === 'login' ? 'Login' : 'Register'}
-              </button>
-            </form>
-
-            <button
-              type="button"
-              className="text-link"
-              onClick={() =>
-                setCustomerForm((current) => ({
-                  ...current,
-                  mode: current.mode === 'login' ? 'register' : 'login',
-                }))
-              }
-            >
-              {customerForm.mode === 'login'
-                ? 'Need an account? Create one'
-                : 'Already have an account? Sign in'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showCheckout && (
-        <div className="checkout-modal" role="dialog" aria-modal="true">
-          <div className="checkout-card">
-            <div className="auth-header">
-              <h3>Secure checkout</h3>
-              <button type="button" className="close-btn" onClick={() => setShowCheckout(false)}>
-                ×
-              </button>
-            </div>
-
-            <div className="checkout-layout">
-              <form className="checkout-form" onSubmit={handleCheckoutSubmit}>
-                <label>
-                  Full name
-                  <input
-                    type="text"
-                    value={checkoutForm.name}
-                    onChange={(event) =>
-                      setCheckoutForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                    placeholder="Jane Doe"
-                  />
-                </label>
-                <label>
-                  Email
-                  <input
-                    type="email"
-                    value={checkoutForm.email}
-                    onChange={(event) =>
-                      setCheckoutForm((current) => ({ ...current, email: event.target.value }))
-                    }
-                    placeholder="you@example.com"
-                  />
-                </label>
-                <label>
-                  Delivery address
-                  <input
-                    type="text"
-                    value={checkoutForm.address}
-                    onChange={(event) =>
-                      setCheckoutForm((current) => ({ ...current, address: event.target.value }))
-                    }
-                    placeholder="123 Main Street"
-                  />
-                </label>
-                <label>
-                  City
-                  <input
-                    type="text"
-                    value={checkoutForm.city}
-                    onChange={(event) =>
-                      setCheckoutForm((current) => ({ ...current, city: event.target.value }))
-                    }
-                    placeholder="Lagos"
-                  />
-                </label>
-                <label>
-                  Payment method
-                  <select
-                    value={checkoutForm.payment}
-                    onChange={(event) =>
-                      setCheckoutForm((current) => ({ ...current, payment: event.target.value }))
-                    }
-                  >
-                    <option value="Paystack">Paystack</option>
-                    <option value="Bank transfer">Bank transfer</option>
-                    <option value="Cash on delivery">Cash on delivery</option>
-                  </select>
-                </label>
-
-                {checkoutForm.payment === 'Bank transfer' && (
-                  <div
-                    style={{
-                      background: '#f9f3ff',
-                      border: '1px solid #e6d9ff',
-                      borderRadius: '12px',
-                      padding: '12px 14px',
-                      marginTop: '4px',
-                      color: '#3f2b53',
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    <strong>Bank transfer details</strong>
-                    <div>Bank: Access Bank</div>
-                    <div>Account name: Everything By Ada</div>
-                    <div>Account number: 0012345678</div>
-                    <div>Reference: use your order name</div>
-                  </div>
-                )}
-
-                <button type="submit" className="primary-btn full-width">
-                  Place order
-                </button>
-              </form>
-
-              <aside className="checkout-summary">
-                <h4>Order summary</h4>
-                {cart.length === 0 ? (
-                  <p className="empty-cart">Your cart is empty.</p>
-                ) : (
-                  <>
-                    {cart.map((item) => (
-                      <div key={item.id} className="checkout-item-row">
-                        <div>
-                          <strong>{item.name}</strong>
-                          <span>
-                            {item.qty} × ${item.price}
-                          </span>
-                        </div>
-                        <strong>${item.price * item.qty}</strong>
-                      </div>
-                    ))}
-                    <div className="checkout-divider" />
-                    <div className="checkout-totals">
-                      <span>Subtotal</span>
-                      <strong>${subtotal}</strong>
-                    </div>
-                    <div className="checkout-totals">
-                      <span>Shipping</span>
-                      <strong>{shipping === 0 ? 'Free' : `$${shipping}`}</strong>
-                    </div>
-                    <div className="checkout-totals total">
-                      <span>Total</span>
-                      <strong>${total}</strong>
-                    </div>
-                  </>
-                )}
-              </aside>
-            </div>
-          </div>
-        </div>
-      )}
 
       {currentView === 'admin' && !isAdminLoggedIn ? (
         renderAdminLogin()
@@ -687,12 +755,18 @@ function App() {
         <AdminDashboard
           products={products}
           setProducts={setProducts}
+          categories={categories}
+          setCategories={setCategories}
           orders={initialOrders}
           totalRevenue={totalRevenue}
           cartCount={cartCount}
-          onBackToStore={() => setCurrentView('store')}
+          onBackToStore={() => navigateTo('/')}
           onLogout={handleLogout}
         />
+      ) : currentView === 'account' ? (
+        renderAccountPage()
+      ) : currentView === 'product' ? (
+        renderProductDetail()
       ) : (
         <main>
           <section className="hero" id="home">
@@ -707,8 +781,12 @@ function App() {
               </p>
 
               <div className="cta-row">
-                <button className="primary-btn" onClick={() => setCurrentView('store')}>Shop Now</button>
-                <button className="secondary-btn" onClick={() => setShowCheckout(true)}>Checkout</button>
+                <button type="button" className="primary-btn" onClick={() => navigateTo('/')}>
+                  Shop Now
+                </button>
+                <button type="button" className="secondary-btn">
+                  Explore Deals
+                </button>
               </div>
 
               <div className="stat-row">
@@ -781,9 +859,10 @@ function App() {
             </div>
 
             <div className="filter-row" aria-label="Product categories">
-              {categories.map((category) => (
+              {categoryFilters.map((category) => (
                 <button
                   key={category}
+                  type="button"
                   className={selectedCategory === category ? 'filter-chip active' : 'filter-chip'}
                   onClick={() => setSelectedCategory(category)}
                 >
@@ -795,7 +874,11 @@ function App() {
             <div className="shop-layout">
               <div className="product-grid">
                 {filteredProducts.map((product) => (
-                  <article className="product-card" key={product.id}>
+                  <article
+                    className="product-card"
+                    key={product.id}
+                    onClick={() => navigateTo(`/product/${product.id}`)}
+                  >
                     <div className="product-image-wrap">
                       <span className="sale-tag">
                         -{Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}%
@@ -805,7 +888,7 @@ function App() {
                     <div className="product-info">
                       <div className="meta-row">
                         <span>{product.category}</span>
-                        <span>{product.stock ?? 0} left</span>
+                        <span>{product.feature}</span>
                       </div>
                       <h4>{product.name}</h4>
                       <div className="rating-row">
@@ -818,11 +901,14 @@ function App() {
                         <strong>${product.price}</strong>
                         <span>${product.oldPrice}</span>
                       </div>
-                      <div className="stock-row">
-                        <span>In stock</span>
-                        <strong>{product.stock ?? 0}</strong>
-                      </div>
-                      <button className="add-btn" onClick={() => addToCart(product)}>
+                      <button
+                        type="button"
+                        className="add-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          addToCart(product);
+                        }}
+                      >
                         Add to cart
                       </button>
                     </div>
@@ -846,9 +932,9 @@ function App() {
                           <p>{item.category}</p>
                         </div>
                         <div className="cart-controls">
-                          <button onClick={() => updateCartQty(item.id, -1)}>-</button>
+                          <button type="button" onClick={() => updateCartQty(item.id, -1)}>-</button>
                           <span>{item.qty}</span>
-                          <button onClick={() => updateCartQty(item.id, 1)}>+</button>
+                          <button type="button" onClick={() => updateCartQty(item.id, 1)}>+</button>
                         </div>
                         <strong>${item.price * item.qty}</strong>
                       </div>
@@ -861,13 +947,13 @@ function App() {
                       </div>
                       <div className="checkout-row">
                         <span>Shipping</span>
-                        <strong>{shipping === 0 ? 'Free' : `$${shipping}`}</strong>
+                        <strong>Free</strong>
                       </div>
                       <div className="checkout-row total">
                         <span>Total</span>
-                        <strong>${total}</strong>
+                        <strong>${subtotal}</strong>
                       </div>
-                      <button className="primary-btn full-width" onClick={() => setShowCheckout(true)}>
+                      <button type="button" className="primary-btn full-width">
                         Checkout
                       </button>
                     </div>
@@ -916,7 +1002,9 @@ function App() {
               <h3>Get exclusive deals and wellness tips</h3>
               <form>
                 <input type="email" placeholder="Your email address" />
-                <button type="button" className="primary-btn">Join now</button>
+                <button type="button" className="primary-btn">
+                  Join now
+                </button>
               </form>
             </div>
           </section>
@@ -935,10 +1023,18 @@ function App() {
         </div>
 
         <div className="footer-links">
-          <button className="footer-link" onClick={() => setCurrentView('store')}>Home</button>
-          <button className="footer-link" onClick={() => setCurrentView('store')}>Shop</button>
-          <button className="footer-link" onClick={handleAdminButton}>Admin</button>
-          <button className="footer-link" onClick={() => setCurrentView('store')}>Support</button>
+          <button type="button" className="footer-link" onClick={() => navigateTo('/')}>
+            Home
+          </button>
+          <button type="button" className="footer-link" onClick={() => navigateTo('/')}>
+            Shop
+          </button>
+          <button type="button" className="footer-link" onClick={handleAdminButton}>
+            Admin
+          </button>
+          <button type="button" className="footer-link" onClick={() => navigateTo('/account')}>
+            Account
+          </button>
         </div>
 
         <div className="contact-box">
