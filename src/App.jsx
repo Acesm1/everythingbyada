@@ -5,7 +5,6 @@ const DEFAULT_CATEGORIES = ['Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'everythingbyada123';
 const CUSTOMER_KEY = 'everythingbyada_customer';
-const PENDING_VERIFICATION_KEY = 'everythingbyada_pending_verification';
 
 const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
 
@@ -185,8 +184,22 @@ function routeFromPath(pathname) {
   return 'store';
 }
 
-function generateVerificationCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+async function postJson(path, payload) {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Request failed.');
+  }
+
+  return data;
 }
 
 function App() {
@@ -365,42 +378,28 @@ function App() {
     setAuthError('');
   };
 
-  const handleAccountSubmit = (event) => {
+  const handleAccountSubmit = async (event) => {
     event.preventDefault();
     const trimmedName = customerForm.name.trim();
     const trimmedEmail = customerForm.email.trim();
     const trimmedPassword = customerForm.password.trim();
 
     if (accountMode === 'verify') {
-      const pendingVerification = readStorage(PENDING_VERIFICATION_KEY, null);
+      try {
+        const data = await postJson('/api/verify', {
+          email: customerForm.email,
+          code: verificationCodeInput,
+        });
 
-      if (!pendingVerification) {
-        setAccountMessage('Your verification request expired. Please create an account again.');
-        setAccountMode('register');
-        return;
+        writeStorage(CUSTOMER_KEY, data.profile);
+        setCustomerProfile(data.profile);
+        setCustomerForm(data.profile);
+        setVerificationCodeInput('');
+        setAccountMode('profile');
+        setAccountMessage(data.message || 'Email verified successfully. Your account is now active.');
+      } catch (error) {
+        setAccountMessage(error.message || 'The verification code is invalid.');
       }
-
-      if (verificationCodeInput.trim() !== pendingVerification.verificationCode) {
-        setAccountMessage('Incorrect verification code. Please check the code sent to your email.');
-        return;
-      }
-
-      const verifiedProfile = {
-        name: pendingVerification.name,
-        email: pendingVerification.email,
-        password: pendingVerification.password,
-        phone: pendingVerification.phone,
-        address: pendingVerification.address,
-        city: pendingVerification.city,
-      };
-
-      localStorage.removeItem(PENDING_VERIFICATION_KEY);
-      writeStorage(CUSTOMER_KEY, verifiedProfile);
-      setCustomerProfile(verifiedProfile);
-      setCustomerForm(verifiedProfile);
-      setVerificationCodeInput('');
-      setAccountMode('profile');
-      setAccountMessage('Email verified successfully. Your account is now active.');
       return;
     }
 
@@ -411,7 +410,6 @@ function App() {
       }
 
       const newProfile = {
-        ...customerForm,
         name: trimmedName,
         email: trimmedEmail,
         password: trimmedPassword,
@@ -420,16 +418,22 @@ function App() {
         city: customerForm.city.trim(),
       };
 
-      const verificationCode = generateVerificationCode();
-      const pendingUser = { ...newProfile, verificationCode };
+      try {
+        const data = await postJson('/api/register', newProfile);
+        setCustomerProfile(null);
+        setCustomerForm({ ...defaultProfile, email: trimmedEmail });
+        setVerificationCodeInput('');
+        setAccountMode('verify');
+        setAccountMessage(
+          data.message || `A verification code has been sent to ${trimmedEmail}.`,
+        );
 
-      writeStorage(PENDING_VERIFICATION_KEY, pendingUser);
-      setCustomerProfile(null);
-      setCustomerForm({ ...defaultProfile, email: trimmedEmail });
-      setVerificationCodeInput('');
-      setAccountMode('verify');
-      setAccountMessage(`A verification code was sent to ${trimmedEmail}. Please enter it below.`);
-      window.alert(`Your verification code is: ${verificationCode}`);
+        if (data.verificationCode) {
+          window.alert(`Verification code: ${data.verificationCode}`);
+        }
+      } catch (error) {
+        setAccountMessage(error.message || 'Unable to create your account right now.');
+      }
       return;
     }
 
@@ -460,7 +464,6 @@ function App() {
 
   const handleAccountLogout = () => {
     localStorage.removeItem(CUSTOMER_KEY);
-    localStorage.removeItem(PENDING_VERIFICATION_KEY);
     setCustomerProfile(null);
     setCustomerForm(defaultProfile);
     setVerificationCodeInput('');
