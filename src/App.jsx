@@ -408,6 +408,23 @@ function App() {
     setAccountMessage('You have been logged out.');
   };
 
+  const handleCheckout = () => {
+    if (!customerProfile) {
+      setAccountMode('login');
+      setAccountMessage('Please sign in or create an account to complete checkout.');
+      navigateTo('/account');
+      return;
+    }
+
+    if (!cart.length) {
+      setAccountMessage('Your cart is empty. Please add a product before checkout.');
+      return;
+    }
+
+    setAccountMessage('Checkout started.');
+    window.alert('Checkout is ready. Please continue with your saved account details.');
+  };
+
   const renderAdminLogin = () => (
     <main className="admin-login-shell">
       <div className="admin-login-card">
@@ -959,7 +976,7 @@ function App() {
                         <span>Total</span>
                         <strong>{formatPrice(subtotal)}</strong>
                       </div>
-                      <button type="button" className="primary-btn full-width">
+                      <button type="button" className="primary-btn full-width" onClick={handleCheckout}>
                         Checkout
                       </button>
                     </div>
@@ -1054,4 +1071,3 @@ function App() {
 }
 
 export default App;
-
