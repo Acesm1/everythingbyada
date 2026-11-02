@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const categories = ['All', 'Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'everythingbyada123';
 
 const productCatalog = [
   {
@@ -147,6 +149,18 @@ function App() {
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState([]);
   const [newProduct, setNewProduct] = useState(emptyProduct);
+  const [adminForm, setAdminForm] = useState({ username: '', password: '' });
+  const [authError, setAuthError] = useState('');
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('eba_admin_logged_in') === 'true';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('eba_admin_logged_in', String(isAdminLoggedIn));
+    }
+  }, [isAdminLoggedIn]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -217,6 +231,85 @@ function App() {
     setNewProduct(emptyProduct);
   };
 
+  const handleAdminLogin = (event) => {
+    event.preventDefault();
+
+    if (
+      adminForm.username.trim() === ADMIN_USERNAME &&
+      adminForm.password === ADMIN_PASSWORD
+    ) {
+      setIsAdminLoggedIn(true);
+      setCurrentView('admin');
+      setAuthError('');
+      setAdminForm({ username: '', password: '' });
+      return;
+    }
+
+    setAuthError('Invalid admin username or password.');
+  };
+
+  const handleAdminNav = () => {
+    if (!isAdminLoggedIn) {
+      setCurrentView('admin');
+      return;
+    }
+    setCurrentView('admin');
+  };
+
+  const logoutAdmin = () => {
+    setIsAdminLoggedIn(false);
+    setCurrentView('store');
+    setAuthError('');
+  };
+
+  const renderAdminLogin = () => (
+    <main className="admin-login-shell">
+      <div className="admin-login-card">
+        <span className="mini-label">Restricted area</span>
+        <h2>Admin Login</h2>
+        <p>Only the admin account can access this dashboard.</p>
+
+        <form className="admin-login-form" onSubmit={handleAdminLogin}>
+          <label>
+            Username
+            <input
+              type="text"
+              value={adminForm.username}
+              onChange={(event) =>
+                setAdminForm((current) => ({
+                  ...current,
+                  username: event.target.value,
+                }))
+              }
+              placeholder="admin"
+            />
+          </label>
+
+          <label>
+            Password
+            <input
+              type="password"
+              value={adminForm.password}
+              onChange={(event) =>
+                setAdminForm((current) => ({
+                  ...current,
+                  password: event.target.value,
+                }))
+              }
+              placeholder="Enter password"
+            />
+          </label>
+
+          {authError && <div className="auth-error">{authError}</div>}
+
+          <button className="primary-btn full-width" type="submit">
+            Login to dashboard
+          </button>
+        </form>
+      </div>
+    </main>
+  );
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -235,12 +328,16 @@ function App() {
           <button className="nav-link" onClick={() => setCurrentView('store')}>Home</button>
           <button className="nav-link" onClick={() => setCurrentView('store')}>Shop</button>
           <button className="nav-link" onClick={() => setCurrentView('store')}>Goals</button>
-          <button className="nav-link" onClick={() => setCurrentView('admin')}>Admin</button>
+          <button className="nav-link" onClick={handleAdminNav}>Admin</button>
           <button className="nav-link" onClick={() => setCurrentView('store')}>Contact</button>
         </nav>
 
         <div className="header-actions">
-          <button className="ghost-btn">Sign In</button>
+          {!isAdminLoggedIn && currentView === 'admin' ? (
+            <button className="ghost-btn" onClick={() => setCurrentView('store')}>Back to store</button>
+          ) : (
+            <button className="ghost-btn">Sign In</button>
+          )}
           <button className="cart-btn" aria-label="Shopping cart">
             <span>Cart</span>
             <strong>{cartCount}</strong>
@@ -248,16 +345,23 @@ function App() {
         </div>
       </header>
 
-      {currentView === 'admin' ? (
+      {currentView === 'admin' && !isAdminLoggedIn ? (
+        renderAdminLogin()
+      ) : currentView === 'admin' ? (
         <main className="admin-panel">
           <section className="admin-header">
             <div>
               <span className="mini-label">Admin center</span>
               <h2>Marketplace dashboard</h2>
             </div>
-            <button className="primary-btn" onClick={() => setCurrentView('store')}>
-              View storefront
-            </button>
+            <div className="admin-header-actions">
+              <button className="primary-btn" onClick={() => setCurrentView('store')}>
+                View storefront
+              </button>
+              <button className="secondary-btn" onClick={logoutAdmin}>
+                Log out
+              </button>
+            </div>
           </section>
 
           <section className="stats-grid">
@@ -637,7 +741,7 @@ function App() {
         <div className="footer-links">
           <button className="footer-link" onClick={() => setCurrentView('store')}>Home</button>
           <button className="footer-link" onClick={() => setCurrentView('store')}>Shop</button>
-          <button className="footer-link" onClick={() => setCurrentView('admin')}>Admin</button>
+          <button className="footer-link" onClick={handleAdminNav}>Admin</button>
           <button className="footer-link" onClick={() => setCurrentView('store')}>Support</button>
         </div>
 
