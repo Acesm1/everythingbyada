@@ -4,6 +4,8 @@ import { AdminDashboard } from './admin/AdminDashboard';
 const DEFAULT_CATEGORIES = ['Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'everythingbyada123';
+const CUSTOMER_KEY = 'everythingbyada_customer';
+const PENDING_VERIFICATION_KEY = 'everythingbyada_pending_verification';
 
 const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
 
@@ -183,6 +185,10 @@ function routeFromPath(pathname) {
   return 'store';
 }
 
+function generateVerificationCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 function App() {
   const [currentView, setCurrentView] = useState(() => {
     if (typeof window === 'undefined') return 'store';
@@ -210,12 +216,13 @@ function App() {
   });
   const [accountMode, setAccountMode] = useState('login');
   const [customerProfile, setCustomerProfile] = useState(() =>
-    readStorage('everythingbyada_customer', null),
+    readStorage(CUSTOMER_KEY, null),
   );
   const [customerForm, setCustomerForm] = useState(() =>
-    readStorage('everythingbyada_customer', defaultProfile),
+    readStorage(CUSTOMER_KEY, defaultProfile),
   );
   const [accountMessage, setAccountMessage] = useState('');
+  const [verificationCodeInput, setVerificationCodeInput] = useState('');
 
   const categoryFilters = useMemo(() => ['All', ...categories], [categories]);
 
@@ -235,7 +242,7 @@ function App() {
 
   useEffect(() => {
     if (customerProfile) {
-      writeStorage('everythingbyada_customer', customerProfile);
+      writeStorage(CUSTOMER_KEY, customerProfile);
     }
   }, [customerProfile]);
 
@@ -364,6 +371,39 @@ function App() {
     const trimmedEmail = customerForm.email.trim();
     const trimmedPassword = customerForm.password.trim();
 
+    if (accountMode === 'verify') {
+      const pendingVerification = readStorage(PENDING_VERIFICATION_KEY, null);
+
+      if (!pendingVerification) {
+        setAccountMessage('Your verification request expired. Please create an account again.');
+        setAccountMode('register');
+        return;
+      }
+
+      if (verificationCodeInput.trim() !== pendingVerification.verificationCode) {
+        setAccountMessage('Incorrect verification code. Please check the code sent to your email.');
+        return;
+      }
+
+      const verifiedProfile = {
+        name: pendingVerification.name,
+        email: pendingVerification.email,
+        password: pendingVerification.password,
+        phone: pendingVerification.phone,
+        address: pendingVerification.address,
+        city: pendingVerification.city,
+      };
+
+      localStorage.removeItem(PENDING_VERIFICATION_KEY);
+      writeStorage(CUSTOMER_KEY, verifiedProfile);
+      setCustomerProfile(verifiedProfile);
+      setCustomerForm(verifiedProfile);
+      setVerificationCodeInput('');
+      setAccountMode('profile');
+      setAccountMessage('Email verified successfully. Your account is now active.');
+      return;
+    }
+
     if (accountMode === 'register') {
       if (!trimmedName || !trimmedEmail || !trimmedPassword) {
         setAccountMessage('Please complete your name, email, and password.');
@@ -380,10 +420,16 @@ function App() {
         city: customerForm.city.trim(),
       };
 
-      setCustomerProfile(newProfile);
-      setCustomerForm(newProfile);
-      setAccountMessage('Account created successfully.');
-      setAccountMode('profile');
+      const verificationCode = generateVerificationCode();
+      const pendingUser = { ...newProfile, verificationCode };
+
+      writeStorage(PENDING_VERIFICATION_KEY, pendingUser);
+      setCustomerProfile(null);
+      setCustomerForm({ ...defaultProfile, email: trimmedEmail });
+      setVerificationCodeInput('');
+      setAccountMode('verify');
+      setAccountMessage(`A verification code was sent to ${trimmedEmail}. Please enter it below.`);
+      window.alert(`Your verification code is: ${verificationCode}`);
       return;
     }
 
@@ -392,7 +438,7 @@ function App() {
       return;
     }
 
-    const savedProfile = readStorage('everythingbyada_customer', null);
+    const savedProfile = readStorage(CUSTOMER_KEY, null);
     if (!savedProfile) {
       setAccountMessage('No account found. Please create an account first.');
       return;
@@ -413,9 +459,11 @@ function App() {
   };
 
   const handleAccountLogout = () => {
-    localStorage.removeItem('everythingbyada_customer');
+    localStorage.removeItem(CUSTOMER_KEY);
+    localStorage.removeItem(PENDING_VERIFICATION_KEY);
     setCustomerProfile(null);
     setCustomerForm(defaultProfile);
+    setVerificationCodeInput('');
     setAccountMode('login');
     setAccountMessage('You have been logged out.');
   };
@@ -486,7 +534,7 @@ function App() {
           <div className="account-header-row">
             <div>
               <span className="mini-label">My account</span>
-              <h2>{isLoggedIn ? 'Your profile' : 'Welcome back'}</h2>
+              <h2>{isLoggedIn ? 'Your profile' : accountMode === 'verify' ? 'Verify your email' : 'Welcome back'}</h2>
             </div>
             {isLoggedIn && (
               <button className="secondary-btn" type="button" onClick={handleAccountLogout}>
@@ -495,7 +543,7 @@ function App() {
             )}
           </div>
 
-          {!isLoggedIn ? (
+          {!isLoggedIn && accountMode !== 'verify' ? (
             <div className="account-form-switch">
               <button
                 type="button"
@@ -533,106 +581,129 @@ function App() {
             </div>
           ) : (
             <form className="account-form" onSubmit={handleAccountSubmit}>
-              {accountMode === 'register' && (
-                <label>
-                  Full name
-                  <input
-                    type="text"
-                    value={customerForm.name}
-                    onChange={(event) =>
-                      setCustomerForm((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder="Ada Okafor"
-                  />
-                </label>
-              )}
-
-              <label>
-                Email
-                <input
-                  type="email"
-                  value={customerForm.email}
-                  onChange={(event) =>
-                    setCustomerForm((current) => ({
-                      ...current,
-                      email: event.target.value,
-                    }))
-                  }
-                  placeholder="you@example.com"
-                />
-              </label>
-
-              <label>
-                Password
-                <input
-                  type="password"
-                  value={customerForm.password}
-                  onChange={(event) =>
-                    setCustomerForm((current) => ({
-                      ...current,
-                      password: event.target.value,
-                    }))
-                  }
-                  placeholder={accountMode === 'register' ? 'Create a password' : 'Enter your password'}
-                />
-              </label>
-
-              {accountMode === 'register' && (
+              {accountMode === 'verify' ? (
                 <>
+                  <p className="verify-note">
+                    We sent a 6-digit verification code to {customerForm.email || 'your email'}.
+                  </p>
                   <label>
-                    Phone
+                    Verification code
                     <input
-                      type="tel"
-                      value={customerForm.phone}
+                      type="text"
+                      value={verificationCodeInput}
+                      onChange={(event) => setVerificationCodeInput(event.target.value.trim())}
+                      placeholder="Enter 6-digit code"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  {accountMode === 'register' && (
+                    <label>
+                      Full name
+                      <input
+                        type="text"
+                        value={customerForm.name}
+                        onChange={(event) =>
+                          setCustomerForm((current) => ({
+                            ...current,
+                            name: event.target.value,
+                          }))
+                        }
+                        placeholder="Ada Okafor"
+                      />
+                    </label>
+                  )}
+
+                  <label>
+                    Email
+                    <input
+                      type="email"
+                      value={customerForm.email}
                       onChange={(event) =>
                         setCustomerForm((current) => ({
                           ...current,
-                          phone: event.target.value,
+                          email: event.target.value,
                         }))
                       }
-                      placeholder="080-0000-0000"
+                      placeholder="you@example.com"
                     />
                   </label>
 
                   <label>
-                    Address
+                    Password
                     <input
-                      type="text"
-                      value={customerForm.address}
+                      type="password"
+                      value={customerForm.password}
                       onChange={(event) =>
                         setCustomerForm((current) => ({
                           ...current,
-                          address: event.target.value,
+                          password: event.target.value,
                         }))
                       }
-                      placeholder="12 Market Road"
+                      placeholder={accountMode === 'register' ? 'Create a password' : 'Enter your password'}
                     />
                   </label>
 
-                  <label>
-                    City
-                    <input
-                      type="text"
-                      value={customerForm.city}
-                      onChange={(event) =>
-                        setCustomerForm((current) => ({
-                          ...current,
-                          city: event.target.value,
-                        }))
-                      }
-                      placeholder="Lagos"
-                    />
-                  </label>
+                  {accountMode === 'register' && (
+                    <>
+                      <label>
+                        Phone
+                        <input
+                          type="tel"
+                          value={customerForm.phone}
+                          onChange={(event) =>
+                            setCustomerForm((current) => ({
+                              ...current,
+                              phone: event.target.value,
+                            }))
+                          }
+                          placeholder="080-0000-0000"
+                        />
+                      </label>
+
+                      <label>
+                        Address
+                        <input
+                          type="text"
+                          value={customerForm.address}
+                          onChange={(event) =>
+                            setCustomerForm((current) => ({
+                              ...current,
+                              address: event.target.value,
+                            }))
+                          }
+                          placeholder="12 Market Road"
+                        />
+                      </label>
+
+                      <label>
+                        City
+                        <input
+                          type="text"
+                          value={customerForm.city}
+                          onChange={(event) =>
+                            setCustomerForm((current) => ({
+                              ...current,
+                              city: event.target.value,
+                            }))
+                          }
+                          placeholder="Lagos"
+                        />
+                      </label>
+                    </>
+                  )}
                 </>
               )}
 
               {accountMessage && <div className="auth-error">{accountMessage}</div>}
 
               <button type="submit" className="primary-btn full-width">
-                {accountMode === 'register' ? 'Create account' : 'Sign in'}
+                {accountMode === 'verify'
+                  ? 'Verify account'
+                  : accountMode === 'register'
+                    ? 'Create account'
+                    : 'Sign in'}
               </button>
             </form>
           )}
