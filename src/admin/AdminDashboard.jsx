@@ -22,6 +22,8 @@ const emptyProduct = {
 export function AdminDashboard({
   products,
   setProducts,
+  categories = [],
+  setCategories,
   orders,
   totalRevenue,
   cartCount,
@@ -70,12 +72,22 @@ export function AdminDashboard({
   const handleSubmit = (event) => {
     event.preventDefault();
 
-    if (!draft.name.trim()) return;
+    const trimmedName = draft.name.trim();
+    const trimmedCategory = draft.category.trim();
+
+    if (!trimmedName || !trimmedCategory) return;
+
+    if (setCategories && !categories.includes(trimmedCategory)) {
+      setCategories((current = []) => {
+        const next = current.includes(trimmedCategory) ? current : [...current, trimmedCategory];
+        return next;
+      });
+    }
 
     const normalizedProduct = {
       id: editingId ?? Date.now(),
-      name: draft.name.trim(),
-      category: draft.category,
+      name: trimmedName,
+      category: trimmedCategory,
       price: Number(draft.price) || 0,
       oldPrice: Number(draft.oldPrice) || Number(draft.price) || 0,
       stock: Number(draft.stock) || 0,
@@ -189,16 +201,18 @@ export function AdminDashboard({
 
             <label>
               Category
-              <select
+              <input
+                type="text"
                 value={draft.category}
                 onChange={(event) => handleDraftChange('category', event.target.value)}
-              >
-                {productCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
+                placeholder="Type a category name"
+                list="admin-category-suggestions"
+              />
+              <datalist id="admin-category-suggestions">
+                {(categories.length ? categories : productCategories).map((category) => (
+                  <option key={category} value={category} />
                 ))}
-              </select>
+              </datalist>
             </label>
 
             <div className="two-col-inputs">
