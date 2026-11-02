@@ -112,36 +112,42 @@ const dashboardCards = [
     text: 'Enhance your bust size, improve firmness, and boost confidence.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+    productId: 1,
   },
   {
     title: 'Butt/hips enlargement',
     text: 'Grow and lift your butt naturally for a curvier shape.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+    productId: 2,
   },
   {
     title: 'Flat tummy',
     text: 'Burn belly fat, reduce bloating, and achieve a flatter waistline.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+    productId: 3,
   },
   {
     title: 'Weight loss',
     text: 'Lose weight the healthy way and feel lighter, stronger, and more confident.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+    productId: 5,
   },
   {
     title: 'Weight gain',
     text: 'Gain healthy weight, build curves, and improve your overall body size.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+    productId: 2,
   },
   {
     title: 'Infection cure',
     text: 'Help cleanse your system, fight infections, and promote overall wellness.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+    productId: 4,
   },
 ];
 
@@ -273,6 +279,11 @@ function App() {
     [products, selectedProductId],
   );
 
+  const selectedProductInCart = useMemo(
+    () => cart.find((item) => item.id === selectedProductId) ?? null,
+    [cart, selectedProductId],
+  );
+
   const relatedProducts = useMemo(() => {
     if (!selectedProduct) return [];
     return products
@@ -315,6 +326,10 @@ function App() {
         )
         .filter((item) => item.qty > 0),
     );
+  };
+
+  const removeFromCart = (id) => {
+    setCart((current) => current.filter((item) => item.id !== id));
   };
 
   const handleLogin = (event) => {
@@ -661,9 +676,20 @@ function App() {
             <p className="product-description">{selectedProduct.description}</p>
 
             <div className="detail-cta-row">
-              <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>
-                Add to cart
-              </button>
+              {selectedProductInCart ? (
+                <>
+                  <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>
+                    Add another
+                  </button>
+                  <button className="secondary-btn" type="button" onClick={() => removeFromCart(selectedProduct.id)}>
+                    Remove from cart
+                  </button>
+                </>
+              ) : (
+                <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>
+                  Add to cart
+                </button>
+              )}
               <button className="secondary-btn" type="button" onClick={() => navigateTo('/')}>
                 Continue shopping
               </button>
@@ -833,7 +859,19 @@ function App() {
 
           <section className="goal-grid">
             {dashboardCards.map((card) => (
-              <article className="goal-card" key={card.title}>
+              <article
+                className="goal-card"
+                key={card.title}
+                tabIndex={0}
+                role="button"
+                onClick={() => navigateTo(`/product/${card.productId}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigateTo(`/product/${card.productId}`);
+                  }
+                }}
+              >
                 <div className="goal-header">{card.title}</div>
                 <img src={card.image} alt={card.title} />
                 <p>{card.text}</p>
@@ -936,7 +974,12 @@ function App() {
                           <span>{item.qty}</span>
                           <button type="button" onClick={() => updateCartQty(item.id, 1)}>+</button>
                         </div>
-                        <strong>${item.price * item.qty}</strong>
+                        <div className="cart-actions">
+                          <strong>${item.price * item.qty}</strong>
+                          <button type="button" className="remove-cart-btn" onClick={() => removeFromCart(item.id)}>
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     ))}
 
