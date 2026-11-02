@@ -232,21 +232,11 @@ function App() {
         </div>
 
         <nav className="main-nav" aria-label="Main navigation">
-          <button className="nav-link" onClick={() => setCurrentView('store')}>
-            Home
-          </button>
-          <button className="nav-link" onClick={() => setCurrentView('store')}>
-            Shop
-          </button>
-          <button className="nav-link" onClick={() => setCurrentView('store')}>
-            Goals
-          </button>
-          <button className="nav-link" onClick={() => setCurrentView('admin')}>
-            Admin
-          </button>
-          <button className="nav-link" onClick={() => setCurrentView('store')}>
-            Contact
-          </button>
+          <button className="nav-link" onClick={() => setCurrentView('store')}>Home</button>
+          <button className="nav-link" onClick={() => setCurrentView('store')}>Shop</button>
+          <button className="nav-link" onClick={() => setCurrentView('store')}>Goals</button>
+          <button className="nav-link" onClick={() => setCurrentView('admin')}>Admin</button>
+          <button className="nav-link" onClick={() => setCurrentView('store')}>Contact</button>
         </nav>
 
         <div className="header-actions">
