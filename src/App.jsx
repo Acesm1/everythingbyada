@@ -288,7 +288,8 @@ function App() {
     if (!selectedProduct) return [];
     return products
       .filter(
-        (product) => product.category === selectedProduct.category && product.id !== selectedProduct.id,
+        (product) =>
+          product.category === selectedProduct.category && product.id !== selectedProduct.id,
       )
       .slice(0, 3);
   }, [products, selectedProduct]);
@@ -700,14 +701,22 @@ function App() {
         {relatedProducts.length > 0 && (
           <section className="related-products">
             <div className="section-heading compact">
-              <h3>Related products</h3>
+              <h3>More in {selectedProduct.category}</h3>
             </div>
             <div className="related-grid">
               {relatedProducts.map((product) => (
                 <article
                   key={product.id}
                   className="product-card slim"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => navigateTo(`/product/${product.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigateTo(`/product/${product.id}`);
+                    }
+                  }}
                 >
                   <div className="product-image-wrap">
                     <img src={product.image} alt={product.name} />
@@ -722,6 +731,16 @@ function App() {
                       <strong>${product.price}</strong>
                       <span>${product.oldPrice}</span>
                     </div>
+                    <button
+                      type="button"
+                      className="add-btn"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        addToCart(product);
+                      }}
+                    >
+                      Add to cart
+                    </button>
                   </div>
                 </article>
               ))}
