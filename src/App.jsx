@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AdminDashboard } from './admin/AdminDashboard';
 
 const categories = ['All', 'Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
 const ADMIN_USERNAME = 'admin';
@@ -132,33 +133,22 @@ const dashboardCards = [
   },
 ];
 
-const emptyProduct = {
-  name: '',
-  category: 'Weight Loss',
-  price: '',
-  oldPrice: '',
-  image:
-    'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-  feature: '',
-};
-
 function App() {
   const [currentView, setCurrentView] = useState('store');
   const [products, setProducts] = useState(productCatalog);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState([]);
-  const [newProduct, setNewProduct] = useState(emptyProduct);
   const [adminForm, setAdminForm] = useState({ username: '', password: '' });
   const [authError, setAuthError] = useState('');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return localStorage.getItem('eba_admin_logged_in') === 'true';
+    return localStorage.getItem('everythingbyada_admin') === 'true';
   });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('eba_admin_logged_in', String(isAdminLoggedIn));
+      localStorage.setItem('everythingbyada_admin', String(isAdminLoggedIn));
     }
   }, [isAdminLoggedIn]);
 
@@ -199,41 +189,8 @@ function App() {
     );
   };
 
-  const deleteProduct = (id) => {
-    setProducts((current) => current.filter((product) => product.id !== id));
-  };
-
-  const handleNewProductChange = (event) => {
-    const { name, value } = event.target;
-    setNewProduct((current) => ({
-      ...current,
-      [name]: value,
-    }));
-  };
-
-  const addProduct = (event) => {
+  const handleLogin = (event) => {
     event.preventDefault();
-    if (!newProduct.name.trim()) return;
-
-    const product = {
-      id: Date.now(),
-      name: newProduct.name,
-      category: newProduct.category,
-      price: Number(newProduct.price) || 0,
-      oldPrice: Number(newProduct.oldPrice) || Number(newProduct.price) || 0,
-      rating: 4.8,
-      reviews: 0,
-      image: newProduct.image,
-      feature: newProduct.feature || 'New arrival',
-    };
-
-    setProducts((current) => [product, ...current]);
-    setNewProduct(emptyProduct);
-  };
-
-  const handleAdminLogin = (event) => {
-    event.preventDefault();
-
     if (
       adminForm.username.trim() === ADMIN_USERNAME &&
       adminForm.password === ADMIN_PASSWORD
@@ -248,7 +205,7 @@ function App() {
     setAuthError('Invalid admin username or password.');
   };
 
-  const handleAdminNav = () => {
+  const handleAdminButton = () => {
     if (!isAdminLoggedIn) {
       setCurrentView('admin');
       return;
@@ -256,7 +213,7 @@ function App() {
     setCurrentView('admin');
   };
 
-  const logoutAdmin = () => {
+  const handleLogout = () => {
     setIsAdminLoggedIn(false);
     setCurrentView('store');
     setAuthError('');
@@ -266,10 +223,10 @@ function App() {
     <main className="admin-login-shell">
       <div className="admin-login-card">
         <span className="mini-label">Restricted area</span>
-        <h2>Admin Login</h2>
-        <p>Only the admin account can access this dashboard.</p>
+        <h2>Admin dashboard login</h2>
+        <p>Only the admin account can access product management and orders.</p>
 
-        <form className="admin-login-form" onSubmit={handleAdminLogin}>
+        <form className="admin-login-form" onSubmit={handleLogin}>
           <label>
             Username
             <input
@@ -328,16 +285,12 @@ function App() {
           <button className="nav-link" onClick={() => setCurrentView('store')}>Home</button>
           <button className="nav-link" onClick={() => setCurrentView('store')}>Shop</button>
           <button className="nav-link" onClick={() => setCurrentView('store')}>Goals</button>
-          <button className="nav-link" onClick={handleAdminNav}>Admin</button>
+          <button className="nav-link" onClick={handleAdminButton}>Admin</button>
           <button className="nav-link" onClick={() => setCurrentView('store')}>Contact</button>
         </nav>
 
         <div className="header-actions">
-          {!isAdminLoggedIn && currentView === 'admin' ? (
-            <button className="ghost-btn" onClick={() => setCurrentView('store')}>Back to store</button>
-          ) : (
-            <button className="ghost-btn">Sign In</button>
-          )}
+          <button className="ghost-btn">Sign In</button>
           <button className="cart-btn" aria-label="Shopping cart">
             <span>Cart</span>
             <strong>{cartCount}</strong>
@@ -348,161 +301,15 @@ function App() {
       {currentView === 'admin' && !isAdminLoggedIn ? (
         renderAdminLogin()
       ) : currentView === 'admin' ? (
-        <main className="admin-panel">
-          <section className="admin-header">
-            <div>
-              <span className="mini-label">Admin center</span>
-              <h2>Marketplace dashboard</h2>
-            </div>
-            <div className="admin-header-actions">
-              <button className="primary-btn" onClick={() => setCurrentView('store')}>
-                View storefront
-              </button>
-              <button className="secondary-btn" onClick={logoutAdmin}>
-                Log out
-              </button>
-            </div>
-          </section>
-
-          <section className="stats-grid">
-            <article className="stat-card">
-              <span>Total revenue</span>
-              <strong>${totalRevenue}</strong>
-            </article>
-            <article className="stat-card">
-              <span>Orders</span>
-              <strong>{initialOrders.length}</strong>
-            </article>
-            <article className="stat-card">
-              <span>Products</span>
-              <strong>{products.length}</strong>
-            </article>
-            <article className="stat-card">
-              <span>Cart items</span>
-              <strong>{cartCount}</strong>
-            </article>
-          </section>
-
-          <section className="admin-grid">
-            <div className="admin-card">
-              <div className="section-heading compact">
-                <h3>Recent orders</h3>
-              </div>
-              <div className="orders-list">
-                {initialOrders.map((order) => (
-                  <div key={order.id} className="order-row">
-                    <div>
-                      <strong>{order.id}</strong>
-                      <p>{order.customer}</p>
-                    </div>
-                    <span>${order.total}</span>
-                    <em>{order.status}</em>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="admin-card">
-              <div className="section-heading compact">
-                <h3>Add product</h3>
-              </div>
-
-              <form className="product-form" onSubmit={addProduct}>
-                <input
-                  type="text"
-                  name="name"
-                  value={newProduct.name}
-                  onChange={handleNewProductChange}
-                  placeholder="Product name"
-                />
-                <select
-                  name="category"
-                  value={newProduct.category}
-                  onChange={handleNewProductChange}
-                >
-                  {categories.filter((category) => category !== 'All').map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-                <div className="inline-inputs">
-                  <input
-                    type="number"
-                    name="price"
-                    value={newProduct.price}
-                    onChange={handleNewProductChange}
-                    placeholder="Price"
-                  />
-                  <input
-                    type="number"
-                    name="oldPrice"
-                    value={newProduct.oldPrice}
-                    onChange={handleNewProductChange}
-                    placeholder="Old price"
-                  />
-                </div>
-                <input
-                  type="url"
-                  name="image"
-                  value={newProduct.image}
-                  onChange={handleNewProductChange}
-                  placeholder="Image URL"
-                />
-                <input
-                  type="text"
-                  name="feature"
-                  value={newProduct.feature}
-                  onChange={handleNewProductChange}
-                  placeholder="Product feature"
-                />
-                <button className="primary-btn" type="submit">
-                  Save product
-                </button>
-              </form>
-            </div>
-          </section>
-
-          <section className="admin-card inventory-card">
-            <div className="section-heading compact">
-              <h3>Inventory</h3>
-            </div>
-
-            <div className="inventory-table-wrap">
-              <table className="inventory-table">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Rating</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((product) => (
-                    <tr key={product.id}>
-                      <td>
-                        <div className="inventory-product">
-                          <img src={product.image} alt={product.name} />
-                          <span>{product.name}</span>
-                        </div>
-                      </td>
-                      <td>{product.category}</td>
-                      <td>${product.price}</td>
-                      <td>{product.rating}/5</td>
-                      <td>
-                        <button className="danger-btn" onClick={() => deleteProduct(product.id)}>
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </main>
+        <AdminDashboard
+          products={products}
+          setProducts={setProducts}
+          orders={initialOrders}
+          totalRevenue={totalRevenue}
+          cartCount={cartCount}
+          onBackToStore={() => setCurrentView('store')}
+          onLogout={handleLogout}
+        />
       ) : (
         <main>
           <section className="hero" id="home">
@@ -741,7 +548,7 @@ function App() {
         <div className="footer-links">
           <button className="footer-link" onClick={() => setCurrentView('store')}>Home</button>
           <button className="footer-link" onClick={() => setCurrentView('store')}>Shop</button>
-          <button className="footer-link" onClick={handleAdminNav}>Admin</button>
+          <button className="footer-link" onClick={handleAdminButton}>Admin</button>
           <button className="footer-link" onClick={() => setCurrentView('store')}>Support</button>
         </div>
 
