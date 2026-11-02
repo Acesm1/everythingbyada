@@ -6,6 +6,8 @@ const defaultImage =
 
 const productCategories = ['Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
 
+const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
+
 const emptyProduct = {
   id: null,
   name: '',
@@ -152,7 +154,7 @@ export function AdminDashboard({
       <section className="admin-stats-grid">
         <article className="admin-stat-card pink">
           <span>Total revenue</span>
-          <strong>${totalRevenue}</strong>
+          <strong>{formatPrice(totalRevenue)}</strong>
         </article>
         <article className="admin-stat-card green">
           <span>Orders</span>
@@ -287,7 +289,7 @@ export function AdminDashboard({
                   <strong>{order.id}</strong>
                   <p>{order.customer}</p>
                 </div>
-                <span>${order.total}</span>
+                <span>{formatPrice(order.total)}</span>
                 <em>{order.status}</em>
               </div>
             ))}
@@ -329,7 +331,7 @@ export function AdminDashboard({
                     </div>
                   </td>
                   <td>{product.category}</td>
-                  <td>${product.price}</td>
+                  <td>{formatPrice(product.price)}</td>
                   <td>{product.stock ?? 0}</td>
                   <td>{product.rating || 4.8}/5</td>
                   <td>
@@ -355,3 +357,4 @@ export function AdminDashboard({
     </main>
   );
 }
+

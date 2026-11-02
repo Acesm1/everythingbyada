@@ -5,6 +5,8 @@ const DEFAULT_CATEGORIES = ['Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'everythingbyada123';
 
+const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
+
 const productCatalog = [
   {
     id: 1,
@@ -112,42 +114,36 @@ const dashboardCards = [
     text: 'Enhance your bust size, improve firmness, and boost confidence.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-    productId: 1,
   },
   {
     title: 'Butt/hips enlargement',
     text: 'Grow and lift your butt naturally for a curvier shape.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-    productId: 2,
   },
   {
     title: 'Flat tummy',
     text: 'Burn belly fat, reduce bloating, and achieve a flatter waistline.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-    productId: 3,
   },
   {
     title: 'Weight loss',
     text: 'Lose weight the healthy way and feel lighter, stronger, and more confident.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-    productId: 5,
   },
   {
     title: 'Weight gain',
     text: 'Gain healthy weight, build curves, and improve your overall body size.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-    productId: 2,
   },
   {
     title: 'Infection cure',
     text: 'Help cleanse your system, fight infections, and promote overall wellness.',
     image:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-    productId: 4,
   },
 ];
 
@@ -279,17 +275,11 @@ function App() {
     [products, selectedProductId],
   );
 
-  const selectedProductInCart = useMemo(
-    () => cart.find((item) => item.id === selectedProductId) ?? null,
-    [cart, selectedProductId],
-  );
-
   const relatedProducts = useMemo(() => {
     if (!selectedProduct) return [];
     return products
       .filter(
-        (product) =>
-          product.category === selectedProduct.category && product.id !== selectedProduct.id,
+        (product) => product.category === selectedProduct.category && product.id !== selectedProduct.id,
       )
       .slice(0, 3);
   }, [products, selectedProduct]);
@@ -327,10 +317,6 @@ function App() {
         )
         .filter((item) => item.qty > 0),
     );
-  };
-
-  const removeFromCart = (id) => {
-    setCart((current) => current.filter((item) => item.id !== id));
   };
 
   const handleLogin = (event) => {
@@ -670,27 +656,16 @@ function App() {
             </div>
 
             <div className="price-row detail-price">
-              <strong>${selectedProduct.price}</strong>
-              <span>${selectedProduct.oldPrice}</span>
+              <strong>{formatPrice(selectedProduct.price)}</strong>
+              <span>{formatPrice(selectedProduct.oldPrice)}</span>
             </div>
 
             <p className="product-description">{selectedProduct.description}</p>
 
             <div className="detail-cta-row">
-              {selectedProductInCart ? (
-                <>
-                  <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>
-                    Add another
-                  </button>
-                  <button className="secondary-btn" type="button" onClick={() => removeFromCart(selectedProduct.id)}>
-                    Remove from cart
-                  </button>
-                </>
-              ) : (
-                <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>
-                  Add to cart
-                </button>
-              )}
+              <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>
+                Add to cart
+              </button>
               <button className="secondary-btn" type="button" onClick={() => navigateTo('/')}>
                 Continue shopping
               </button>
@@ -701,22 +676,14 @@ function App() {
         {relatedProducts.length > 0 && (
           <section className="related-products">
             <div className="section-heading compact">
-              <h3>More in {selectedProduct.category}</h3>
+              <h3>Related products</h3>
             </div>
             <div className="related-grid">
               {relatedProducts.map((product) => (
                 <article
                   key={product.id}
                   className="product-card slim"
-                  role="button"
-                  tabIndex={0}
                   onClick={() => navigateTo(`/product/${product.id}`)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      navigateTo(`/product/${product.id}`);
-                    }
-                  }}
                 >
                   <div className="product-image-wrap">
                     <img src={product.image} alt={product.name} />
@@ -728,19 +695,9 @@ function App() {
                     </div>
                     <h4>{product.name}</h4>
                     <div className="price-row">
-                      <strong>${product.price}</strong>
-                      <span>${product.oldPrice}</span>
+                      <strong>{formatPrice(product.price)}</strong>
+                      <span>{formatPrice(product.oldPrice)}</span>
                     </div>
-                    <button
-                      type="button"
-                      className="add-btn"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        addToCart(product);
-                      }}
-                    >
-                      Add to cart
-                    </button>
                   </div>
                 </article>
               ))}
@@ -845,7 +802,11 @@ function App() {
                 </div>
                 <div>
                   <strong>48h</strong>
-                  <span>Fast delivery</span>
+                  <span>48 hours nationwide</span>
+                </div>
+                <div>
+                  <strong>24h</strong>
+                  <span>24 hours within Lagos</span>
                 </div>
               </div>
             </div>
@@ -878,19 +839,7 @@ function App() {
 
           <section className="goal-grid">
             {dashboardCards.map((card) => (
-              <article
-                className="goal-card"
-                key={card.title}
-                tabIndex={0}
-                role="button"
-                onClick={() => navigateTo(`/product/${card.productId}`)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    navigateTo(`/product/${card.productId}`);
-                  }
-                }}
-              >
+              <article className="goal-card" key={card.title}>
                 <div className="goal-header">{card.title}</div>
                 <img src={card.image} alt={card.title} />
                 <p>{card.text}</p>
@@ -955,8 +904,8 @@ function App() {
                         </span>
                       </div>
                       <div className="price-row">
-                        <strong>${product.price}</strong>
-                        <span>${product.oldPrice}</span>
+                        <strong>{formatPrice(product.price)}</strong>
+                        <span>{formatPrice(product.oldPrice)}</span>
                       </div>
                       <button
                         type="button"
@@ -993,19 +942,14 @@ function App() {
                           <span>{item.qty}</span>
                           <button type="button" onClick={() => updateCartQty(item.id, 1)}>+</button>
                         </div>
-                        <div className="cart-actions">
-                          <strong>${item.price * item.qty}</strong>
-                          <button type="button" className="remove-cart-btn" onClick={() => removeFromCart(item.id)}>
-                            Remove
-                          </button>
-                        </div>
+                        <strong>{formatPrice(item.price * item.qty)}</strong>
                       </div>
                     ))}
 
                     <div className="checkout-box">
                       <div className="checkout-row">
                         <span>Subtotal</span>
-                        <strong>${subtotal}</strong>
+                        <strong>{formatPrice(subtotal)}</strong>
                       </div>
                       <div className="checkout-row">
                         <span>Shipping</span>
@@ -1013,7 +957,7 @@ function App() {
                       </div>
                       <div className="checkout-row total">
                         <span>Total</span>
-                        <strong>${subtotal}</strong>
+                        <strong>{formatPrice(subtotal)}</strong>
                       </div>
                       <button type="button" className="primary-btn full-width">
                         Checkout
@@ -1110,3 +1054,4 @@ function App() {
 }
 
 export default App;
+
