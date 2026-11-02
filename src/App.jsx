@@ -352,10 +352,6 @@ function App() {
     setAuthError('Invalid admin username or password.');
   };
 
-  const handleAdminButton = () => {
-    navigateTo('/admin');
-  };
-
   const handleLogout = () => {
     setIsAdminLoggedIn(false);
     navigateTo('/');
@@ -757,9 +753,6 @@ function App() {
           <button type="button" className="nav-link" onClick={() => navigateTo('/')}>
             Goals
           </button>
-          <button type="button" className="nav-link" onClick={handleAdminButton}>
-            Admin
-          </button>
           <button type="button" className="nav-link" onClick={() => navigateTo('/account')}>
             Account
           </button>
@@ -1059,9 +1052,6 @@ function App() {
           </button>
           <button type="button" className="footer-link" onClick={() => navigateTo('/')}>
             Shop
-          </button>
-          <button type="button" className="footer-link" onClick={handleAdminButton}>
-            Admin
           </button>
           <button type="button" className="footer-link" onClick={() => navigateTo('/account')}>
             Account
