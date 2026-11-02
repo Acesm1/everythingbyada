@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AdminDashboard } from './admin/AdminDashboard';
+import { isSupabaseConfigured, supabase } from './lib/supabase';
 
 const DEFAULT_CATEGORIES = ['Weight Loss', 'Weight Gain', 'Body Care', 'Detox', 'Slimming'];
 const ADMIN_USERNAME = 'admin';
@@ -17,11 +18,9 @@ const productCatalog = [
     oldPrice: 79,
     rating: 4.8,
     reviews: 324,
-    image:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+    image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
     feature: 'Belly sculpt',
-    description:
-      'A premium body wrap blend designed to support contouring, smooth firmness, and daily confidence in your body goals.',
+    description: 'A premium body wrap blend designed to support contouring, smooth firmness, and daily confidence in your body goals.',
   },
   {
     id: 2,
@@ -31,11 +30,9 @@ const productCatalog = [
     oldPrice: 58,
     rating: 4.7,
     reviews: 280,
-    image:
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80',
+    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80',
     feature: 'Natural curve support',
-    description:
-      'A nutrient-rich formula to help support healthy weight gain, energy, and fuller body curves without harsh additives.',
+    description: 'A nutrient-rich formula to help support healthy weight gain, energy, and fuller body curves without harsh additives.',
   },
   {
     id: 3,
@@ -45,11 +42,9 @@ const productCatalog = [
     oldPrice: 46,
     rating: 4.9,
     reviews: 410,
-    image:
-      'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80',
+    image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80',
     feature: 'Daily cleanse',
-    description:
-      'Gentle herbal detox support to help improve digestion, reduce bloating, and refresh your daily wellness routine.',
+    description: 'Gentle herbal detox support to help improve digestion, reduce bloating, and refresh your daily wellness routine.',
   },
   {
     id: 4,
@@ -59,11 +54,9 @@ const productCatalog = [
     oldPrice: 60,
     rating: 4.8,
     reviews: 210,
-    image:
-      'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80',
+    image: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80',
     feature: 'Skin renewal',
-    description:
-      'Deeply nourishing body oil that brings softness, skin glow, and hydration for a radiant, healthy-looking finish.',
+    description: 'Deeply nourishing body oil that brings softness, skin glow, and hydration for a radiant, healthy-looking finish.',
   },
   {
     id: 5,
@@ -73,11 +66,9 @@ const productCatalog = [
     oldPrice: 83,
     rating: 4.6,
     reviews: 165,
-    image:
-      'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80',
+    image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80',
     feature: 'Posture support',
-    description:
-      'A supportive slimming belt designed for comfort, waist shaping, and daily confidence while staying active.',
+    description: 'A supportive slimming belt designed for comfort, waist shaping, and daily confidence while staying active.',
   },
   {
     id: 6,
@@ -87,11 +78,9 @@ const productCatalog = [
     oldPrice: 99,
     rating: 4.9,
     reviews: 492,
-    image:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+    image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
     feature: 'Confidence boost',
-    description:
-      'A complete recovery and self-care kit created for post-workout care, skin softness, and a more confident everyday glow.',
+    description: 'A complete recovery and self-care kit created for post-workout care, skin softness, and a more confident everyday glow.',
   },
 ];
 
@@ -102,60 +91,18 @@ const initialOrders = [
   { id: '#1045', customer: 'Mimi A.', total: 68, status: 'Paid' },
 ];
 
-const benefits = [
-  'Premium wellness products',
-  'Fast nationwide delivery',
-  'Expert guidance from real specialists',
-  'Secure checkout and trusted payment',
-];
+const benefits = ['Premium wellness products', 'Fast nationwide delivery', 'Expert guidance from real specialists', 'Secure checkout and trusted payment'];
 
 const dashboardCards = [
-  {
-    title: 'Bigger and firmer boobs',
-    text: 'Enhance your bust size, improve firmness, and boost confidence.',
-    image:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: 'Butt/hips enlargement',
-    text: 'Grow and lift your butt naturally for a curvier shape.',
-    image:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: 'Flat tummy',
-    text: 'Burn belly fat, reduce bloating, and achieve a flatter waistline.',
-    image:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: 'Weight loss',
-    text: 'Lose weight the healthy way and feel lighter, stronger, and more confident.',
-    image:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: 'Weight gain',
-    text: 'Gain healthy weight, build curves, and improve your overall body size.',
-    image:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: 'Infection cure',
-    text: 'Help cleanse your system, fight infections, and promote overall wellness.',
-    image:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-  },
+  { title: 'Bigger and firmer boobs', text: 'Enhance your bust size, improve firmness, and boost confidence.', image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80' },
+  { title: 'Butt/hips enlargement', text: 'Grow and lift your butt naturally for a curvier shape.', image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80' },
+  { title: 'Flat tummy', text: 'Burn belly fat, reduce bloating, and achieve a flatter waistline.', image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80' },
+  { title: 'Weight loss', text: 'Lose weight the healthy way and feel lighter, stronger, and more confident.', image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80' },
+  { title: 'Weight gain', text: 'Gain healthy weight, build curves, and improve your overall body size.', image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80' },
+  { title: 'Infection cure', text: 'Help cleanse your system, fight infections, and promote overall wellness.', image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80' },
 ];
 
-const defaultProfile = {
-  name: '',
-  email: '',
-  password: '',
-  phone: '',
-  address: '',
-  city: '',
-};
+const defaultProfile = { name: '', email: '', password: '', phone: '', address: '', city: '' };
 
 function readStorage(key, fallback) {
   if (typeof window === 'undefined') return fallback;
@@ -165,15 +112,13 @@ function readStorage(key, fallback) {
   try {
     const parsed = JSON.parse(raw);
     return parsed ?? fallback;
-  } catch (error) {
+  } catch {
     return fallback;
   }
 }
 
 function writeStorage(key, value) {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(key, JSON.stringify(value));
-  }
+  if (typeof window !== 'undefined') localStorage.setItem(key, JSON.stringify(value));
 }
 
 function routeFromPath(pathname) {
@@ -182,24 +127,6 @@ function routeFromPath(pathname) {
   if (cleanPath.startsWith('/account')) return 'account';
   if (cleanPath.startsWith('/product/')) return 'product';
   return 'store';
-}
-
-async function postJson(path, payload) {
-  const response = await fetch(path, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data.message || 'Request failed.');
-  }
-
-  return data;
 }
 
 function App() {
@@ -212,12 +139,8 @@ function App() {
     const match = window.location.pathname.match(/^\/product\/(\d+)$/);
     return match ? Number(match[1]) : null;
   });
-  const [products, setProducts] = useState(() =>
-    readStorage('everythingbyada_products', productCatalog),
-  );
-  const [categories, setCategories] = useState(() =>
-    readStorage('everythingbyada_categories', DEFAULT_CATEGORIES),
-  );
+  const [products, setProducts] = useState(() => readStorage('everythingbyada_products', productCatalog));
+  const [categories, setCategories] = useState(() => readStorage('everythingbyada_categories', DEFAULT_CATEGORIES));
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState([]);
@@ -228,14 +151,9 @@ function App() {
     return localStorage.getItem('everythingbyada_admin') === 'true';
   });
   const [accountMode, setAccountMode] = useState('login');
-  const [customerProfile, setCustomerProfile] = useState(() =>
-    readStorage(CUSTOMER_KEY, null),
-  );
-  const [customerForm, setCustomerForm] = useState(() =>
-    readStorage(CUSTOMER_KEY, defaultProfile),
-  );
+  const [customerProfile, setCustomerProfile] = useState(() => readStorage(CUSTOMER_KEY, null));
+  const [customerForm, setCustomerForm] = useState(() => readStorage(CUSTOMER_KEY, defaultProfile));
   const [accountMessage, setAccountMessage] = useState('');
-  const [verificationCodeInput, setVerificationCodeInput] = useState('');
 
   const categoryFilters = useMemo(() => ['All', ...categories], [categories]);
 
@@ -277,10 +195,54 @@ function App() {
     return () => window.removeEventListener('popstate', syncViewFromLocation);
   }, []);
 
+  useEffect(() => {
+    if (!supabase) return;
+
+    const loadSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const userProfile = {
+          id: session.user.id,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Customer',
+          email: session.user.email,
+          phone: session.user.user_metadata?.phone || '',
+          address: session.user.user_metadata?.address || '',
+          city: session.user.user_metadata?.city || '',
+        };
+        setCustomerProfile(userProfile);
+        setCustomerForm(userProfile);
+        writeStorage(CUSTOMER_KEY, userProfile);
+      }
+    };
+
+    loadSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const userProfile = {
+          id: session.user.id,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Customer',
+          email: session.user.email,
+          phone: session.user.user_metadata?.phone || '',
+          address: session.user.user_metadata?.address || '',
+          city: session.user.user_metadata?.city || '',
+        };
+        setCustomerProfile(userProfile);
+        setCustomerForm(userProfile);
+        writeStorage(CUSTOMER_KEY, userProfile);
+      } else {
+        setCustomerProfile(null);
+        setCustomerForm(defaultProfile);
+        localStorage.removeItem(CUSTOMER_KEY);
+      }
+    });
+
+    return () => authListener.subscription.unsubscribe();
+  }, []);
+
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      const matchesCategory =
-        selectedCategory === 'All' || product.category === selectedCategory;
+      const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
       const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
       return matchesCategory && matchesSearch;
     });
@@ -297,11 +259,7 @@ function App() {
 
   const relatedProducts = useMemo(() => {
     if (!selectedProduct) return [];
-    return products
-      .filter(
-        (product) => product.category === selectedProduct.category && product.id !== selectedProduct.id,
-      )
-      .slice(0, 3);
+    return products.filter((product) => product.category === selectedProduct.category && product.id !== selectedProduct.id).slice(0, 3);
   }, [products, selectedProduct]);
 
   const navigateTo = (path) => {
@@ -321,9 +279,7 @@ function App() {
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
       if (existing) {
-        return current.map((item) =>
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item,
-        );
+        return current.map((item) => (item.id === product.id ? { ...item, qty: item.qty + 1 } : item));
       }
       return [...current, { ...product, qty: 1 }];
     });
@@ -332,9 +288,7 @@ function App() {
   const updateCartQty = (id, direction) => {
     setCart((current) =>
       current
-        .map((item) =>
-          item.id === id ? { ...item, qty: Math.max(0, item.qty + direction) } : item,
-        )
+        .map((item) => (item.id === id ? { ...item, qty: Math.max(0, item.qty + direction) } : item))
         .filter((item) => item.qty > 0),
     );
   };
@@ -357,10 +311,7 @@ function App() {
 
   const handleLogin = (event) => {
     event.preventDefault();
-    if (
-      adminForm.username.trim() === ADMIN_USERNAME &&
-      adminForm.password === ADMIN_PASSWORD
-    ) {
+    if (adminForm.username.trim() === ADMIN_USERNAME && adminForm.password === ADMIN_PASSWORD) {
       setIsAdminLoggedIn(true);
       setCurrentView('admin');
       setAuthError('');
@@ -380,28 +331,15 @@ function App() {
 
   const handleAccountSubmit = async (event) => {
     event.preventDefault();
+
+    if (!isSupabaseConfigured) {
+      setAccountMessage('Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env to enable real verification emails.');
+      return;
+    }
+
     const trimmedName = customerForm.name.trim();
     const trimmedEmail = customerForm.email.trim();
     const trimmedPassword = customerForm.password.trim();
-
-    if (accountMode === 'verify') {
-      try {
-        const data = await postJson('/api/verify', {
-          email: customerForm.email,
-          code: verificationCodeInput,
-        });
-
-        writeStorage(CUSTOMER_KEY, data.profile);
-        setCustomerProfile(data.profile);
-        setCustomerForm(data.profile);
-        setVerificationCodeInput('');
-        setAccountMode('profile');
-        setAccountMessage(data.message || 'Email verified successfully. Your account is now active.');
-      } catch (error) {
-        setAccountMessage(error.message || 'The verification code is invalid.');
-      }
-      return;
-    }
 
     if (accountMode === 'register') {
       if (!trimmedName || !trimmedEmail || !trimmedPassword) {
@@ -409,31 +347,27 @@ function App() {
         return;
       }
 
-      const newProfile = {
-        name: trimmedName,
+      const { error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
-        phone: customerForm.phone.trim(),
-        address: customerForm.address.trim(),
-        city: customerForm.city.trim(),
-      };
+        options: {
+          data: {
+            full_name: trimmedName,
+            phone: customerForm.phone.trim(),
+            address: customerForm.address.trim(),
+            city: customerForm.city.trim(),
+          },
+        },
+      });
 
-      try {
-        const data = await postJson('/api/register', newProfile);
-        setCustomerProfile(null);
-        setCustomerForm({ ...defaultProfile, email: trimmedEmail });
-        setVerificationCodeInput('');
-        setAccountMode('verify');
-        setAccountMessage(
-          data.message || `A verification code has been sent to ${trimmedEmail}.`,
-        );
-
-        if (data.verificationCode) {
-          window.alert(`Verification code: ${data.verificationCode}`);
-        }
-      } catch (error) {
-        setAccountMessage(error.message || 'Unable to create your account right now.');
+      if (error) {
+        setAccountMessage(error.message || 'Unable to create your account.');
+        return;
       }
+
+      setAccountMode('login');
+      setCustomerForm({ ...defaultProfile, email: trimmedEmail });
+      setAccountMessage('Account created. Please check your email and confirm it before signing in.');
       return;
     }
 
@@ -442,40 +376,43 @@ function App() {
       return;
     }
 
-    const savedProfile = readStorage(CUSTOMER_KEY, null);
-    if (!savedProfile) {
-      setAccountMessage('No account found. Please create an account first.');
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password: trimmedPassword,
+    });
+
+    if (error) {
+      setAccountMessage(error.message || 'Incorrect email or password.');
       return;
     }
 
-    if (
-      savedProfile.email.toLowerCase() === trimmedEmail.toLowerCase() &&
-      savedProfile.password === trimmedPassword
-    ) {
-      setCustomerProfile(savedProfile);
-      setCustomerForm(savedProfile);
-      setAccountMessage('Welcome back!');
-      setAccountMode('profile');
-      return;
-    }
+    const userProfile = {
+      id: data.user.id,
+      name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Customer',
+      email: data.user.email,
+      phone: data.user.user_metadata?.phone || '',
+      address: data.user.user_metadata?.address || '',
+      city: data.user.user_metadata?.city || '',
+    };
 
-    setAccountMessage('Incorrect email or password.');
+    setCustomerProfile(userProfile);
+    setCustomerForm(userProfile);
+    writeStorage(CUSTOMER_KEY, userProfile);
+    setAccountMessage('Welcome back!');
+    setAccountMode('profile');
   };
 
-  const handleAccountLogout = () => {
+  const handleAccountLogout = async () => {
+    if (supabase) await supabase.auth.signOut();
     localStorage.removeItem(CUSTOMER_KEY);
     setCustomerProfile(null);
     setCustomerForm(defaultProfile);
-    setVerificationCodeInput('');
     setAccountMode('login');
     setAccountMessage('You have been logged out.');
   };
 
   const handleCheckout = () => {
-    if (!requireCustomerAuth()) {
-      return;
-    }
-
+    if (!requireCustomerAuth()) return;
     setAccountMessage('Checkout started.');
     window.alert('Checkout is ready. Please continue with your saved account details.');
   };
@@ -490,39 +427,17 @@ function App() {
         <form className="admin-login-form" onSubmit={handleLogin}>
           <label>
             Username
-            <input
-              type="text"
-              value={adminForm.username}
-              onChange={(event) =>
-                setAdminForm((current) => ({
-                  ...current,
-                  username: event.target.value,
-                }))
-              }
-              placeholder="admin"
-            />
+            <input type="text" value={adminForm.username} onChange={(event) => setAdminForm((current) => ({ ...current, username: event.target.value }))} placeholder="admin" />
           </label>
 
           <label>
             Password
-            <input
-              type="password"
-              value={adminForm.password}
-              onChange={(event) =>
-                setAdminForm((current) => ({
-                  ...current,
-                  password: event.target.value,
-                }))
-              }
-              placeholder="Enter password"
-            />
+            <input type="password" value={adminForm.password} onChange={(event) => setAdminForm((current) => ({ ...current, password: event.target.value }))} placeholder="Enter password" />
           </label>
 
           {authError && <div className="auth-error">{authError}</div>}
 
-          <button className="primary-btn full-width" type="submit">
-            Login to dashboard
-          </button>
+          <button className="primary-btn full-width" type="submit">Login to dashboard</button>
         </form>
       </div>
     </main>
@@ -537,33 +452,19 @@ function App() {
           <div className="account-header-row">
             <div>
               <span className="mini-label">My account</span>
-              <h2>{isLoggedIn ? 'Your profile' : accountMode === 'verify' ? 'Verify your email' : 'Welcome back'}</h2>
+              <h2>{isLoggedIn ? 'Your profile' : 'Welcome back'}</h2>
             </div>
             {isLoggedIn && (
-              <button className="secondary-btn" type="button" onClick={handleAccountLogout}>
-                Log out
-              </button>
+              <button className="secondary-btn" type="button" onClick={handleAccountLogout}>Log out</button>
             )}
           </div>
 
-          {!isLoggedIn && accountMode !== 'verify' ? (
+          {!isLoggedIn && (
             <div className="account-form-switch">
-              <button
-                type="button"
-                className={accountMode === 'login' ? 'switch-btn active' : 'switch-btn'}
-                onClick={() => setAccountMode('login')}
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                className={accountMode === 'register' ? 'switch-btn active' : 'switch-btn'}
-                onClick={() => setAccountMode('register')}
-              >
-                Create account
-              </button>
+              <button type="button" className={accountMode === 'login' ? 'switch-btn active' : 'switch-btn'} onClick={() => setAccountMode('login')}>Sign in</button>
+              <button type="button" className={accountMode === 'register' ? 'switch-btn active' : 'switch-btn'} onClick={() => setAccountMode('register')}>Create account</button>
             </div>
-          ) : null}
+          )}
 
           {isLoggedIn && customerProfile ? (
             <div className="profile-summary">
@@ -571,142 +472,51 @@ function App() {
               <h3>{customerProfile.name}</h3>
               <p>{customerProfile.email}</p>
               <ul>
-                <li>
-                  <strong>Phone:</strong> {customerProfile.phone || 'Not set'}
-                </li>
-                <li>
-                  <strong>Address:</strong> {customerProfile.address || 'Not set'}
-                </li>
-                <li>
-                  <strong>City:</strong> {customerProfile.city || 'Not set'}
-                </li>
+                <li><strong>Phone:</strong> {customerProfile.phone || 'Not set'}</li>
+                <li><strong>Address:</strong> {customerProfile.address || 'Not set'}</li>
+                <li><strong>City:</strong> {customerProfile.city || 'Not set'}</li>
               </ul>
             </div>
           ) : (
             <form className="account-form" onSubmit={handleAccountSubmit}>
-              {accountMode === 'verify' ? (
+              {accountMode === 'register' && (
+                <label>
+                  Full name
+                  <input type="text" value={customerForm.name} onChange={(event) => setCustomerForm((current) => ({ ...current, name: event.target.value }))} placeholder="Ada Okafor" />
+                </label>
+              )}
+
+              <label>
+                Email
+                <input type="email" value={customerForm.email} onChange={(event) => setCustomerForm((current) => ({ ...current, email: event.target.value }))} placeholder="you@example.com" />
+              </label>
+
+              <label>
+                Password
+                <input type="password" value={customerForm.password} onChange={(event) => setCustomerForm((current) => ({ ...current, password: event.target.value }))} placeholder={accountMode === 'register' ? 'Create a password' : 'Enter your password'} />
+              </label>
+
+              {accountMode === 'register' && (
                 <>
-                  <p className="verify-note">
-                    We sent a 6-digit verification code to {customerForm.email || 'your email'}.
-                  </p>
                   <label>
-                    Verification code
-                    <input
-                      type="text"
-                      value={verificationCodeInput}
-                      onChange={(event) => setVerificationCodeInput(event.target.value.trim())}
-                      placeholder="Enter 6-digit code"
-                    />
+                    Phone
+                    <input type="tel" value={customerForm.phone} onChange={(event) => setCustomerForm((current) => ({ ...current, phone: event.target.value }))} placeholder="080-0000-0000" />
                   </label>
-                </>
-              ) : (
-                <>
-                  {accountMode === 'register' && (
-                    <label>
-                      Full name
-                      <input
-                        type="text"
-                        value={customerForm.name}
-                        onChange={(event) =>
-                          setCustomerForm((current) => ({
-                            ...current,
-                            name: event.target.value,
-                          }))
-                        }
-                        placeholder="Ada Okafor"
-                      />
-                    </label>
-                  )}
-
                   <label>
-                    Email
-                    <input
-                      type="email"
-                      value={customerForm.email}
-                      onChange={(event) =>
-                        setCustomerForm((current) => ({
-                          ...current,
-                          email: event.target.value,
-                        }))
-                      }
-                      placeholder="you@example.com"
-                    />
+                    Address
+                    <input type="text" value={customerForm.address} onChange={(event) => setCustomerForm((current) => ({ ...current, address: event.target.value }))} placeholder="12 Market Road" />
                   </label>
-
                   <label>
-                    Password
-                    <input
-                      type="password"
-                      value={customerForm.password}
-                      onChange={(event) =>
-                        setCustomerForm((current) => ({
-                          ...current,
-                          password: event.target.value,
-                        }))
-                      }
-                      placeholder={accountMode === 'register' ? 'Create a password' : 'Enter your password'}
-                    />
+                    City
+                    <input type="text" value={customerForm.city} onChange={(event) => setCustomerForm((current) => ({ ...current, city: event.target.value }))} placeholder="Lagos" />
                   </label>
-
-                  {accountMode === 'register' && (
-                    <>
-                      <label>
-                        Phone
-                        <input
-                          type="tel"
-                          value={customerForm.phone}
-                          onChange={(event) =>
-                            setCustomerForm((current) => ({
-                              ...current,
-                              phone: event.target.value,
-                            }))
-                          }
-                          placeholder="080-0000-0000"
-                        />
-                      </label>
-
-                      <label>
-                        Address
-                        <input
-                          type="text"
-                          value={customerForm.address}
-                          onChange={(event) =>
-                            setCustomerForm((current) => ({
-                              ...current,
-                              address: event.target.value,
-                            }))
-                          }
-                          placeholder="12 Market Road"
-                        />
-                      </label>
-
-                      <label>
-                        City
-                        <input
-                          type="text"
-                          value={customerForm.city}
-                          onChange={(event) =>
-                            setCustomerForm((current) => ({
-                              ...current,
-                              city: event.target.value,
-                            }))
-                          }
-                          placeholder="Lagos"
-                        />
-                      </label>
-                    </>
-                  )}
                 </>
               )}
 
               {accountMessage && <div className="auth-error">{accountMessage}</div>}
 
               <button type="submit" className="primary-btn full-width">
-                {accountMode === 'verify'
-                  ? 'Verify account'
-                  : accountMode === 'register'
-                    ? 'Create account'
-                    : 'Sign in'}
+                {accountMode === 'register' ? 'Create account' : 'Sign in'}
               </button>
             </form>
           )}
@@ -721,9 +531,7 @@ function App() {
         <main className="product-detail-shell">
           <div className="product-not-found">
             <h2>Product not found</h2>
-            <button className="primary-btn" type="button" onClick={() => navigateTo('/')}>
-              Back to shop
-            </button>
+            <button className="primary-btn" type="button" onClick={() => navigateTo('/')}>Back to shop</button>
           </div>
         </main>
       );
@@ -731,68 +539,42 @@ function App() {
 
     return (
       <main className="product-detail-shell">
-        <button className="back-link" type="button" onClick={() => navigateTo('/')}>
-          ← Back to store
-        </button>
+        <button className="back-link" type="button" onClick={() => navigateTo('/')}>← Back to store</button>
 
         <section className="product-detail-card">
           <div className="product-detail-image-wrap">
             <img src={selectedProduct.image} alt={selectedProduct.name} />
           </div>
-
           <div className="product-detail-copy">
             <span className="mini-label">{selectedProduct.category}</span>
             <h2>{selectedProduct.name}</h2>
             <div className="rating-row detail-rating">
               <strong>★★★★★</strong>
-              <span>
-                {selectedProduct.rating} ({selectedProduct.reviews} reviews)
-              </span>
+              <span>{selectedProduct.rating} ({selectedProduct.reviews} reviews)</span>
             </div>
-
             <div className="price-row detail-price">
               <strong>{formatPrice(selectedProduct.price)}</strong>
               <span>{formatPrice(selectedProduct.oldPrice)}</span>
             </div>
-
             <p className="product-description">{selectedProduct.description}</p>
-
             <div className="detail-cta-row">
-              <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>
-                Add to cart
-              </button>
-              <button className="secondary-btn" type="button" onClick={() => navigateTo('/')}>
-                Continue shopping
-              </button>
+              <button className="primary-btn" type="button" onClick={() => addToCart(selectedProduct)}>Add to cart</button>
+              <button className="secondary-btn" type="button" onClick={() => navigateTo('/')}>Continue shopping</button>
             </div>
           </div>
         </section>
 
         {relatedProducts.length > 0 && (
           <section className="related-products">
-            <div className="section-heading compact">
-              <h3>Related products</h3>
-            </div>
+            <div className="section-heading compact"><h3>Related products</h3></div>
             <div className="related-grid">
               {relatedProducts.map((product) => (
-                <article
-                  key={product.id}
-                  className="product-card slim"
-                  onClick={() => navigateTo(`/product/${product.id}`)}
-                >
-                  <div className="product-image-wrap">
-                    <img src={product.image} alt={product.name} />
-                  </div>
+                <article key={product.id} className="product-card slim" onClick={() => navigateTo(`/product/${product.id}`)}>
+                  <div className="product-image-wrap"><img src={product.image} alt={product.name} /></div>
                   <div className="product-info">
-                    <div className="meta-row">
-                      <span>{product.category}</span>
-                      <span>{product.feature}</span>
-                    </div>
+                    <div className="meta-row"><span>{product.category}</span><span>{product.feature}</span></div>
                     <h4>{product.name}</h4>
-                    <div className="price-row">
-                      <strong>{formatPrice(product.price)}</strong>
-                      <span>{formatPrice(product.oldPrice)}</span>
-                    </div>
+                    <div className="price-row"><strong>{formatPrice(product.price)}</strong><span>{formatPrice(product.oldPrice)}</span></div>
                   </div>
                 </article>
               ))}
@@ -807,9 +589,7 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand-block">
-          <div className="logo-ring">
-            <span>EB</span>
-          </div>
+          <div className="logo-ring"><span>EB</span></div>
           <div className="brand-copy">
             <strong>Everything</strong>
             <span>bodiedbyAda</span>
@@ -818,28 +598,15 @@ function App() {
         </div>
 
         <nav className="main-nav" aria-label="Main navigation">
-          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>
-            Home
-          </button>
-          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>
-            Shop
-          </button>
-          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>
-            Goals
-          </button>
-          <button type="button" className="nav-link" onClick={() => navigateTo('/account')}>
-            Account
-          </button>
+          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>Home</button>
+          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>Shop</button>
+          <button type="button" className="nav-link" onClick={() => navigateTo('/')}>Goals</button>
+          <button type="button" className="nav-link" onClick={() => navigateTo('/account')}>Account</button>
         </nav>
 
         <div className="header-actions">
-          <button type="button" className="ghost-btn" onClick={() => navigateTo('/account')}>
-            {customerProfile ? 'Profile' : 'Sign In'}
-          </button>
-          <button type="button" className="cart-btn" aria-label="Shopping cart">
-            <span>Cart</span>
-            <strong>{cartCount}</strong>
-          </button>
+          <button type="button" className="ghost-btn" onClick={() => navigateTo('/account')}>{customerProfile ? 'Profile' : 'Sign In'}</button>
+          <button type="button" className="cart-btn" aria-label="Shopping cart"><span>Cart</span><strong>{cartCount}</strong></button>
         </div>
       </header>
 
@@ -866,66 +633,32 @@ function App() {
           <section className="hero" id="home">
             <div className="hero-copy">
               <div className="badge">Premium wellness & beauty</div>
-              <h1>
-                What are <span>your</span> body goals?
-              </h1>
-              <p>
-                Discover premium products designed to support weight goals, body confidence,
-                and a healthier lifestyle for every customer.
-              </p>
-
+              <h1>What are <span>your</span> body goals?</h1>
+              <p>Discover premium products designed to support weight goals, body confidence, and a healthier lifestyle for every customer.</p>
               <div className="cta-row">
-                <button type="button" className="primary-btn" onClick={() => navigateTo('/')}>
-                  Shop Now
-                </button>
-                <button type="button" className="secondary-btn">
-                  Explore Deals
-                </button>
+                <button type="button" className="primary-btn" onClick={() => navigateTo('/')}>Shop Now</button>
+                <button type="button" className="secondary-btn">Explore Deals</button>
               </div>
-
               <div className="stat-row">
-                <div>
-                  <strong>12K+</strong>
-                  <span>Happy shoppers</span>
-                </div>
-                <div>
-                  <strong>4.9/5</strong>
-                  <span>Customer rating</span>
-                </div>
-                <div>
-                  <strong>48h</strong>
-                  <span>48 hours nationwide</span>
-                </div>
-                <div>
-                  <strong>24h</strong>
-                  <span>24 hours within Lagos</span>
-                </div>
+                <div><strong>12K+</strong><span>Happy shoppers</span></div>
+                <div><strong>4.9/5</strong><span>Customer rating</span></div>
+                <div><strong>48h</strong><span>48 hours nationwide</span></div>
+                <div><strong>24h</strong><span>24 hours within Lagos</span></div>
               </div>
             </div>
 
             <div className="hero-visual">
               <div className="visual-card main">
                 <div className="card-badge">Best Seller</div>
-                <img
-                  src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=80"
-                  alt="Woman posing with body glow product"
-                />
+                <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=80" alt="Woman posing with body glow product" />
               </div>
-              <div className="visual-card side top">
-                <span>Curves</span>
-                <strong>Natural boost</strong>
-              </div>
-              <div className="visual-card side bottom">
-                <span>Weight care</span>
-                <strong>Daily essentials</strong>
-              </div>
+              <div className="visual-card side top"><span>Curves</span><strong>Natural boost</strong></div>
+              <div className="visual-card side bottom"><span>Weight care</span><strong>Daily essentials</strong></div>
             </div>
           </section>
 
           <section className="goal-banner" id="goals">
-            <h2>
-              WHAT ARE <span>YOUR</span> BODY GOALS?
-            </h2>
+            <h2>WHAT ARE <span>YOUR</span> BODY GOALS?</h2>
             <p>We have the right products to help you achieve them!</p>
           </section>
 
@@ -946,41 +679,22 @@ function App() {
                 <h3>Marketplace best sellers</h3>
               </div>
               <div className="shop-controls">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search products..."
-                  aria-label="Search products"
-                />
+                <input type="text" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products..." aria-label="Search products" />
               </div>
             </div>
 
             <div className="filter-row" aria-label="Product categories">
               {categoryFilters.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  className={selectedCategory === category ? 'filter-chip active' : 'filter-chip'}
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category}
-                </button>
+                <button key={category} type="button" className={selectedCategory === category ? 'filter-chip active' : 'filter-chip'} onClick={() => setSelectedCategory(category)}>{category}</button>
               ))}
             </div>
 
             <div className="shop-layout">
               <div className="product-grid">
                 {filteredProducts.map((product) => (
-                  <article
-                    className="product-card"
-                    key={product.id}
-                    onClick={() => navigateTo(`/product/${product.id}`)}
-                  >
+                  <article className="product-card" key={product.id} onClick={() => navigateTo(`/product/${product.id}`)}>
                     <div className="product-image-wrap">
-                      <span className="sale-tag">
-                        -{Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}%
-                      </span>
+                      <span className="sale-tag">-{Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}%</span>
                       <img src={product.image} alt={product.name} />
                     </div>
                     <div className="product-info">
@@ -991,33 +705,20 @@ function App() {
                       <h4>{product.name}</h4>
                       <div className="rating-row">
                         <strong>★★★★★</strong>
-                        <span>
-                          {product.rating} ({product.reviews})
-                        </span>
+                        <span>{product.rating} ({product.reviews})</span>
                       </div>
                       <div className="price-row">
                         <strong>{formatPrice(product.price)}</strong>
                         <span>{formatPrice(product.oldPrice)}</span>
                       </div>
-                      <button
-                        type="button"
-                        className="add-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          addToCart(product);
-                        }}
-                      >
-                        Add to cart
-                      </button>
+                      <button type="button" className="add-btn" onClick={(event) => { event.stopPropagation(); addToCart(product); }}>Add to cart</button>
                     </div>
                   </article>
                 ))}
               </div>
 
               <aside className="cart-panel">
-                <div className="section-heading compact">
-                  <h3>Cart</h3>
-                </div>
+                <div className="section-heading compact"><h3>Cart</h3></div>
 
                 {cart.length === 0 ? (
                   <p className="empty-cart">Your cart is empty.</p>
@@ -1039,21 +740,10 @@ function App() {
                     ))}
 
                     <div className="checkout-box">
-                      <div className="checkout-row">
-                        <span>Subtotal</span>
-                        <strong>{formatPrice(subtotal)}</strong>
-                      </div>
-                      <div className="checkout-row">
-                        <span>Shipping</span>
-                        <strong>Free</strong>
-                      </div>
-                      <div className="checkout-row total">
-                        <span>Total</span>
-                        <strong>{formatPrice(subtotal)}</strong>
-                      </div>
-                      <button type="button" className="primary-btn full-width" onClick={handleCheckout}>
-                        Checkout
-                      </button>
+                      <div className="checkout-row"><span>Subtotal</span><strong>{formatPrice(subtotal)}</strong></div>
+                      <div className="checkout-row"><span>Shipping</span><strong>Free</strong></div>
+                      <div className="checkout-row total"><span>Total</span><strong>{formatPrice(subtotal)}</strong></div>
+                      <button type="button" className="primary-btn full-width" onClick={handleCheckout}>Checkout</button>
                     </div>
                   </>
                 )}
@@ -1068,10 +758,7 @@ function App() {
             </div>
             <div className="benefits-list">
               {benefits.map((benefit) => (
-                <div className="benefit-item" key={benefit}>
-                  <span>✓</span>
-                  <p>{benefit}</p>
-                </div>
+                <div className="benefit-item" key={benefit}><span>✓</span><p>{benefit}</p></div>
               ))}
             </div>
           </section>
@@ -1079,15 +766,9 @@ function App() {
           <section className="testimonial-wrap">
             <div className="testimonial-card">
               <span className="mini-label">Customer love</span>
-              <p>
-                “The products made me feel more confident and helped me stay consistent with my
-                health goals. The ordering process was easy and fast.”
-              </p>
+              <p>“The products made me feel more confident and helped me stay consistent with my health goals. The ordering process was easy and fast.”</p>
               <div className="person">
-                <img
-                  src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80"
-                  alt="Happy customer"
-                />
+                <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80" alt="Happy customer" />
                 <div>
                   <strong>Amara O.</strong>
                   <span>Verified buyer</span>
@@ -1100,9 +781,7 @@ function App() {
               <h3>Get exclusive deals and wellness tips</h3>
               <form>
                 <input type="email" placeholder="Your email address" />
-                <button type="button" className="primary-btn">
-                  Join now
-                </button>
+                <button type="button" className="primary-btn">Join now</button>
               </form>
             </div>
           </section>
@@ -1111,9 +790,7 @@ function App() {
 
       <footer className="site-footer" id="contact">
         <div className="footer-brand-block">
-          <div className="logo-ring small">
-            <span>EB</span>
-          </div>
+          <div className="logo-ring small"><span>EB</span></div>
           <div>
             <strong>Everything</strong>
             <span>bodiedbyAda</span>
@@ -1121,15 +798,9 @@ function App() {
         </div>
 
         <div className="footer-links">
-          <button type="button" className="footer-link" onClick={() => navigateTo('/')}>
-            Home
-          </button>
-          <button type="button" className="footer-link" onClick={() => navigateTo('/')}>
-            Shop
-          </button>
-          <button type="button" className="footer-link" onClick={() => navigateTo('/account')}>
-            Account
-          </button>
+          <button type="button" className="footer-link" onClick={() => navigateTo('/')}>Home</button>
+          <button type="button" className="footer-link" onClick={() => navigateTo('/')}>Shop</button>
+          <button type="button" className="footer-link" onClick={() => navigateTo('/account')}>Account</button>
         </div>
 
         <div className="contact-box">
