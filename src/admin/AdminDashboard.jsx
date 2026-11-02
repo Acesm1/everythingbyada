@@ -12,6 +12,7 @@ const emptyProduct = {
   category: 'Weight Loss',
   price: '',
   oldPrice: '',
+  stock: '',
   image: defaultImage,
   feature: '',
 };
@@ -32,7 +33,11 @@ export function AdminDashboard({
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return products;
-    return products.filter((product) => product.name.toLowerCase().includes(query));
+    return products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(query) ||
+        (product.category || '').toLowerCase().includes(query),
+    );
   }, [products, search]);
 
   const totalProducts = products.length;
@@ -49,6 +54,17 @@ export function AdminDashboard({
     setEditingId(null);
   };
 
+  const handleImageUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      handleDraftChange('image', String(reader.result));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = (event) => {
     event.preventDefault();
 
@@ -60,6 +76,7 @@ export function AdminDashboard({
       category: draft.category,
       price: Number(draft.price) || 0,
       oldPrice: Number(draft.oldPrice) || Number(draft.price) || 0,
+      stock: Number(draft.stock) || 0,
       image: draft.image || defaultImage,
       feature: draft.feature.trim() || 'New arrival',
       rating: editingId
@@ -91,12 +108,22 @@ export function AdminDashboard({
       category: product.category,
       price: String(product.price),
       oldPrice: String(product.oldPrice),
+      stock: String(product.stock ?? 0),
       image: product.image || defaultImage,
       feature: product.feature || '',
     });
   };
 
   const handleDelete = (id) => {
+    const target = products.find((product) => product.id === id);
+    const message = target
+      ? `Remove ${target.name} from inventory?`
+      : 'Remove this product?';
+
+    if (typeof window !== 'undefined' && !window.confirm(message)) {
+      return;
+    }
+
     setProducts((current) => current.filter((product) => product.id !== id));
 
     if (editingId === id) {
@@ -185,6 +212,19 @@ export function AdminDashboard({
               </label>
 
               <label>
+                Stock
+                <input
+                  type="number"
+                  min="0"
+                  value={draft.stock}
+                  onChange={(event) => handleDraftChange('stock', event.target.value)}
+                  placeholder="0"
+                />
+              </label>
+            </div>
+
+            <div className="two-col-inputs">
+              <label>
                 Old price
                 <input
                   type="number"
@@ -193,6 +233,11 @@ export function AdminDashboard({
                   onChange={(event) => handleDraftChange('oldPrice', event.target.value)}
                   placeholder="0"
                 />
+              </label>
+
+              <label>
+                Product image
+                <input type="file" accept="image/*" onChange={handleImageUpload} />
               </label>
             </div>
 
@@ -269,6 +314,7 @@ export function AdminDashboard({
                 <th>Product</th>
                 <th>Category</th>
                 <th>Price</th>
+                <th>Stock</th>
                 <th>Rating</th>
                 <th>Actions</th>
               </tr>
@@ -284,13 +330,18 @@ export function AdminDashboard({
                   </td>
                   <td>{product.category}</td>
                   <td>${product.price}</td>
+                  <td>{product.stock ?? 0}</td>
                   <td>{product.rating || 4.8}/5</td>
                   <td>
                     <div className="row-actions">
                       <button type="button" className="row-edit-btn" onClick={() => handleEdit(product)}>
                         Edit
                       </button>
-                      <button type="button" className="row-delete-btn" onClick={() => handleDelete(product.id)}>
+                      <button
+                        type="button"
+                        className="row-delete-btn"
+                        onClick={() => handleDelete(product.id)}
+                      >
                         Remove
                       </button>
                     </div>
