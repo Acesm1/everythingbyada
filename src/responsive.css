@@ -1,19 +1,19 @@
-/* Use the requested brand artwork as a circular icon, not a square tile. */
+/* Keep the requested artwork readable inside a true circular brand mark. */
 .brand-logo,
 .footer-logo {
   content: url('/src/A8BA47E6-2419-4873-9C16-EA1A23ED85FF.png');
   display: block;
-  width: 76px;
-  height: 76px;
-  flex: 0 0 76px;
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
   aspect-ratio: 1;
-  padding: 0;
+  padding: 5px;
   overflow: hidden;
   border: 3px solid rgba(255, 43, 140, 0.28);
   border-radius: 50%;
   background: #fff;
   object-fit: cover;
-  object-position: left center;
+  object-position: center;
 }
 
 .customer-signup {
@@ -51,14 +51,14 @@
 
 @media (max-width: 640px) {
   .brand-logo {
-    width: 54px;
-    height: 54px;
-    flex-basis: 54px;
-  }
-
-  .footer-logo {
     width: 64px;
     height: 64px;
     flex-basis: 64px;
+  }
+
+  .footer-logo {
+    width: 72px;
+    height: 72px;
+    flex-basis: 72px;
   }
 }
