@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { supabase } from './lib/supabase';
 
 function SignupForm() {
+  const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -45,30 +46,44 @@ function SignupForm() {
 
   return (
     <section className="customer-signup" aria-labelledby="customer-signup-title">
-      <h3 id="customer-signup-title">Create your account</h3>
-      <p>New here? Sign up to manage your orders and account.</p>
-      <form className="admin-login-form" onSubmit={submit}>
-        <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-        <label>Password<input type="password" autoComplete="new-password" minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-        <label>Confirm password<input type="password" autoComplete="new-password" minLength={6} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
-        <button className="primary-btn" type="submit" disabled={busy}>{busy ? 'Creating account…' : 'Sign up'}</button>
-      </form>
-      {message && <p className="signup-message" role="status">{message}</p>}
+      <button
+        type="button"
+        className="signup-toggle secondary-btn"
+        aria-expanded={open}
+        aria-controls="customer-signup-panel"
+        onClick={() => { setOpen((current) => !current); setMessage(''); }}
+      >
+        {open ? 'Back to sign in' : 'Sign up'}
+      </button>
+      <div id="customer-signup-panel" className={`signup-panel${open ? ' is-open' : ''}`} aria-hidden={!open}>
+        <div className="signup-panel-inner">
+          <h3 id="customer-signup-title">Create your account</h3>
+          <p>New here? Sign up to manage your orders and account.</p>
+          <form className="admin-login-form" onSubmit={submit}>
+            <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+            <label>Password<input type="password" autoComplete="new-password" minLength={6} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+            <label>Confirm password<input type="password" autoComplete="new-password" minLength={6} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+            <button className="primary-btn" type="submit" disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>
+          </form>
+          {message && <p className="signup-message" role="status">{message}</p>}
+        </div>
+      </div>
     </section>
   );
 }
 
 function mountSignup() {
-  const card = document.querySelector('.account-page-shell .account-card');
-  if (!card || card.querySelector('.customer-signup-root')) return;
+  // Only attach signup to the account route, below the existing sign-in form.
+  const accountCard = document.querySelector('.account-page-shell .account-card');
+  if (!accountCard || accountCard.querySelector('.customer-signup-root')) return;
 
-  [...card.querySelectorAll('p')]
+  [...accountCard.querySelectorAll('p')]
     .find((paragraph) => /new customers can create an account/i.test(paragraph.textContent))
     ?.remove();
 
   const container = document.createElement('div');
   container.className = 'customer-signup-root';
-  card.append(container);
+  accountCard.append(container);
   createRoot(container).render(<SignupForm />);
 }
 
