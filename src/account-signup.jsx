@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { supabase } from './lib/supabase';
 
@@ -9,6 +9,24 @@ function SignupForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+    let alive = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (alive) setSignedIn(Boolean(data.session?.user));
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (alive) setSignedIn(Boolean(session?.user));
+    });
+
+    return () => {
+      alive = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -43,6 +61,8 @@ function SignupForm() {
       setBusy(false);
     }
   };
+
+  if (signedIn) return null;
 
   return (
     <section className="customer-signup" aria-labelledby="customer-signup-title">
