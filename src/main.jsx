@@ -4,6 +4,7 @@ import App from './App';
 import './styles.css';
 import './responsive.css';
 import './admin/admin.css';
+import './account-signup.js';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

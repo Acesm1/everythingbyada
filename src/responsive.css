@@ -1,17 +1,52 @@
-/* Use the requested brand artwork as a compact circular mark instead of a square tile. */
+/* Use the requested brand artwork as a circular icon, not a square tile. */
 .brand-logo,
 .footer-logo {
+  content: url('/src/A8BA47E6-2419-4873-9C16-EA1A23ED85FF.png');
+  display: block;
   width: 76px;
   height: 76px;
   flex: 0 0 76px;
   aspect-ratio: 1;
-  padding: 4px;
+  padding: 0;
   overflow: hidden;
   border: 3px solid rgba(255, 43, 140, 0.28);
   border-radius: 50%;
   background: #fff;
-  object-fit: contain;
-  object-position: center;
+  object-fit: cover;
+  object-position: left center;
+}
+
+.customer-signup {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 43, 140, 0.16);
+}
+
+.customer-signup h3 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-family: 'Baloo 2', cursive;
+  font-size: 1.5rem;
+}
+
+.customer-signup > p {
+  color: var(--muted);
+}
+
+.customer-signup .admin-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.customer-signup .primary-btn {
+  width: 100%;
+}
+
+.customer-signup .signup-message {
+  margin: 14px 0 0;
+  color: var(--green);
+  font-weight: 700;
 }
 
 @media (max-width: 640px) {
