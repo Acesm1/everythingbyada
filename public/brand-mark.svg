@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" role="img" aria-labelledby="title desc">
+  <title id="title">Everything by Ada</title><desc id="desc">Look Good, Feel Good, Be You</desc>
+  <defs><linearGradient id="pink" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#ff2b8c"/><stop offset="1" stop-color="#f50074"/></linearGradient><linearGradient id="green" x1="0" x2="1"><stop stop-color="#08743f"/><stop offset="1" stop-color="#0e8d57"/></linearGradient></defs>
+  <rect x="5" y="5" width="750" height="210" rx="42" fill="#fff7fb" stroke="#f7b7d5" stroke-width="8"/>
+  <circle cx="112" cy="108" r="78" fill="#ffe0ee" stroke="url(#pink)" stroke-width="7"/>
+  <path d="M60 75 82 90 97 48 116 83 145 60 136 101 81 111Z" fill="url(#pink)" stroke="#b50055" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M74 116h77l-8 47H82z" fill="url(#pink)"/><path d="M91 117c0-27 42-27 42 0" fill="none" stroke="#f50074" stroke-width="9" stroke-linecap="round"/><path d="M112 132c-17-12-24 8 0 22 24-14 17-34 0-22Z" fill="white"/>
+  <text x="212" y="99" font-family="Arial,sans-serif" font-size="64" font-weight="800" fill="url(#green)">Everything</text>
+  <text x="216" y="155" font-family="Georgia,serif" font-size="48" font-style="italic" font-weight="700" fill="#171717">by</text><text x="285" y="162" font-family="Georgia,serif" font-size="72" font-style="italic" font-weight="700" fill="url(#pink)">Ada</text>
+  <text x="215" y="192" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="2" fill="#086b3c">LOOK GOOD  •  FEEL GOOD  •  BE YOU</text>
+</svg>
