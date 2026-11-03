@@ -3,18 +3,23 @@ import { createPortal } from 'react-dom';
 import { supabase } from './lib/supabase';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const SPECIAL_CHECKBOX_LABEL = 'Show this category as a special category';
 
-function imageExtension(file) {
-  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return extension || file.type.split('/')[1]?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'jpg';
+function fileExtension(file) {
+  return file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '')
+    || file.type.split('/')[1]?.replace(/[^a-z0-9]/gi, '').toLowerCase()
+    || 'jpg';
 }
 
 export default function SpecialCategoryImages() {
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminHost, setAdminHost] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [busyCategory, setBusyCategory] = useState('');
+  const [uploadHost, setUploadHost] = useState(null);
+  const [specialChecked, setSpecialChecked] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -25,11 +30,8 @@ export default function SpecialCategoryImages() {
         if (alive) setIsAdmin(false);
         return;
       }
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.from('admin_users')
+        .select('user_id').eq('user_id', user.id).maybeSingle();
       if (alive) setIsAdmin(!error && Boolean(data));
     };
 
@@ -45,37 +47,74 @@ export default function SpecialCategoryImages() {
 
   useEffect(() => {
     if (!isAdmin || !supabase) {
-      setAdminHost(null);
+      setUploadHost(null);
+      setSpecialChecked(false);
       return undefined;
     }
 
-    const findAdminHost = () => {
-      const topbar = document.querySelector('.admin-topbar');
-      const host = topbar?.closest('main') || null;
-      setAdminHost((current) => current === host ? current : host);
+    const syncAdminForm = () => {
+      const labels = [...document.querySelectorAll('label.toggle-row')];
+      const specialLabel = labels.find((label) =>
+        label.textContent?.includes(SPECIAL_CHECKBOX_LABEL));
+      const checkbox = specialLabel?.querySelector('input[type="checkbox"]');
+      const categoryInput = document.querySelector('input[list="category-options"]');
+      if (!specialLabel || !checkbox || !categoryInput) {
+        setUploadHost((host) => host?.isConnected ? host : null);
+        setSpecialChecked(false);
+        return;
+      }
+
+      let host = specialLabel.nextElementSibling;
+      if (!(host instanceof HTMLElement) || !host.hasAttribute('data-special-category-image-upload')) {
+        host = document.createElement('div');
+        host.dataset.specialCategoryImageUpload = 'true';
+        specialLabel.insertAdjacentElement('afterend', host);
+      }
+
+      setUploadHost((current) => current === host ? current : host);
+      setSpecialChecked((current) => current === checkbox.checked ? current : checkbox.checked);
+      setCategoryName((current) => current === categoryInput.value ? current : categoryInput.value);
     };
-    findAdminHost();
-    const observer = new MutationObserver(findAdminHost);
+
+    syncAdminForm();
+    const observer = new MutationObserver(syncAdminForm);
     observer.observe(document.getElementById('root') || document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    const handleFormInput = (event) => {
+      const target = event.target;
+      if (target.matches?.('input[list="category-options"]')) {
+        setCategoryName(target.value);
+      }
+      if (target.matches?.('label.toggle-row input[type="checkbox"]')) {
+        const label = target.closest('label.toggle-row');
+        if (label?.textContent?.includes(SPECIAL_CHECKBOX_LABEL)) {
+          setSpecialChecked(target.checked);
+        }
+      }
+    };
+    document.addEventListener('input', handleFormInput, true);
+    document.addEventListener('change', handleFormInput, true);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('input', handleFormInput, true);
+      document.removeEventListener('change', handleFormInput, true);
+    };
   }, [isAdmin]);
 
   useEffect(() => {
     if (!supabase) return undefined;
     let alive = true;
     const loadCategories = async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('name,is_special,image_url')
-        .order('name');
+      const { data, error } = await supabase.from('categories')
+        .select('name,is_special,image_url').order('name');
       if (!alive) return;
       if (error) {
-        setMessage(`Category images need the database update: ${error.message}`);
+        if (error.code === '42703' || error.code === 'PGRST204') {
+          setMessage('Run supabase/special_category_images.sql in Supabase SQL Editor to enable category images.');
+        }
         return;
       }
       setCategories(data || []);
     };
-
     loadCategories();
     const timer = window.setInterval(loadCategories, 5000);
     return () => {
@@ -85,17 +124,16 @@ export default function SpecialCategoryImages() {
   }, []);
 
   useEffect(() => {
-    const decorateCards = () => {
-      const imageByCategory = new Map(
-        categories.filter((category) => category.is_special && category.image_url)
-          .map((category) => [category.name.trim().toLowerCase(), category.image_url]),
-      );
+    const imageByCategory = new Map(categories
+      .filter((category) => category.is_special && category.image_url)
+      .map((category) => [category.name.trim().toLowerCase(), category.image_url]));
+    const updateCards = () => {
       document.querySelectorAll('.special-category-card').forEach((card) => {
-        const name = card.querySelector('strong')?.textContent?.trim().toLowerCase();
+        const category = card.querySelector('strong')?.textContent?.trim().toLowerCase();
         const icon = card.querySelector('.category-icon');
-        if (!name || !icon) return;
-        const imageUrl = imageByCategory.get(name);
-        if (!imageUrl) {
+        if (!category || !icon) return;
+        const url = imageByCategory.get(category);
+        if (!url) {
           if (icon.querySelector('img')) icon.textContent = '✦';
           return;
         }
@@ -107,26 +145,23 @@ export default function SpecialCategoryImages() {
           image.setAttribute('aria-hidden', 'true');
           icon.append(image);
         }
-        if (image.src !== imageUrl) image.src = imageUrl;
-        image.style.width = '100%';
-        image.style.height = '100%';
-        image.style.objectFit = 'cover';
-        image.style.borderRadius = 'inherit';
-        icon.style.width = '68px';
-        icon.style.height = '68px';
-        icon.style.overflow = 'hidden';
-        icon.style.padding = '0';
+        if (image.src !== url) image.src = url;
+        Object.assign(image.style, { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' });
+        Object.assign(icon.style, { width: '68px', height: '68px', overflow: 'hidden', padding: '0' });
       });
     };
-
-    decorateCards();
-    const observer = new MutationObserver(decorateCards);
+    updateCards();
+    const observer = new MutationObserver(updateCards);
     observer.observe(document.getElementById('root') || document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [categories]);
 
-  const uploadImage = async (category, file) => {
-    if (!file) return;
+  const uploadCategoryImage = async (file) => {
+    const name = categoryName.trim();
+    if (!file || !name) {
+      setMessage(name ? 'Choose an image file.' : 'Enter a category name before uploading its image.');
+      return;
+    }
     if (!file.type.startsWith('image/')) {
       setMessage('Choose an image file.');
       return;
@@ -136,60 +171,57 @@ export default function SpecialCategoryImages() {
       return;
     }
 
-    setBusyCategory(category.name);
+    setBusy(true);
     setMessage('');
     try {
-      const path = `categories/${crypto.randomUUID()}.${imageExtension(file)}`;
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
+      const path = `categories/${crypto.randomUUID()}.${fileExtension(file)}`;
+      const { error: uploadError } = await supabase.storage.from('product-images')
         .upload(path, file, { upsert: false, contentType: file.type });
       if (uploadError) throw uploadError;
 
-      const imageUrl = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
-      const { error: updateError } = await supabase
-        .from('categories')
-        .update({ image_url: imageUrl })
-        .eq('name', category.name);
-      if (updateError) throw updateError;
+      const url = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+      const { error: categoryError } = await supabase.from('categories').upsert(
+        { name, is_special: true, image_url: url }, { onConflict: 'name' },
+      );
+      if (categoryError) throw categoryError;
 
-      setCategories((current) => current.map((item) =>
-        item.name === category.name ? { ...item, image_url: imageUrl } : item));
-      setMessage(`Image saved for ${category.name}.`);
+      setImageUrl(url);
+      setCategories((current) => {
+        const existing = current.find((category) => category.name === name);
+        return existing
+          ? current.map((category) => category.name === name
+            ? { ...category, is_special: true, image_url: url }
+            : category)
+          : [...current, { name, is_special: true, image_url: url }];
+      });
+      setMessage(`Image saved for ${name}.`);
     } catch (error) {
       setMessage(`Could not save category image: ${error.message}`);
     } finally {
-      setBusyCategory('');
+      setBusy(false);
     }
   };
 
-  if (!isAdmin || !adminHost) return null;
+  useEffect(() => {
+    const existing = categories.find((category) => category.name === categoryName);
+    setImageUrl(existing?.image_url || '');
+  }, [categories, categoryName]);
 
-  const specialCategories = categories.filter((category) => category.is_special);
+  if (!isAdmin || !uploadHost || !specialChecked) return null;
+
   return createPortal(
-    <section aria-labelledby="special-category-images-title" style={{ margin: '24px 0', padding: '22px', border: '2px solid rgba(255,43,140,.18)', borderRadius: '24px', background: '#fff' }}>
-      <h2 id="special-category-images-title" style={{ marginTop: 0 }}>Special category images</h2>
-      <p>Upload an image for each category marked as special. It will appear on that category’s storefront card.</p>
-      {specialCategories.length ? specialCategories.map((category) => (
-        <div key={category.name} style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', padding: '12px 0', borderTop: '1px solid #f4dce8' }}>
-          {category.image_url && <img src={category.image_url} alt={`${category.name} category`} style={{ width: '68px', height: '68px', borderRadius: '50%', objectFit: 'cover' }} />}
-          <strong>{category.name}</strong>
-          <label style={{ display: 'grid', gap: '6px' }}>
-            <span>{category.image_url ? 'Change image' : 'Add image'}</span>
-            <input
-              type="file"
-              accept="image/*"
-              disabled={Boolean(busyCategory)}
-              onChange={(event) => {
-                uploadImage(category, event.target.files?.[0]);
-                event.target.value = '';
-              }}
-            />
-          </label>
-          {busyCategory === category.name && <span>Uploading…</span>}
-        </div>
-      )) : <p>No categories are marked as special yet. Use the existing “Show this category as a special category” setting when saving a product, then upload its image here.</p>}
-      {message && <p role="status" style={{ color: message.startsWith('Could not') || message.includes('need the database update') ? '#b42318' : '#087443' }}>{message}</p>}
-    </section>,
-    adminHost,
+    <div style={{ display: 'grid', gap: '8px', margin: '12px 0 18px', padding: '14px', border: '1px solid rgba(255,43,140,.18)', borderRadius: '14px', background: '#fff' }}>
+      <label style={{ display: 'grid', gap: '8px', fontWeight: 700 }}>
+        <span>Special category image</span>
+        <input type="file" accept="image/*" disabled={busy} onChange={(event) => {
+          uploadCategoryImage(event.target.files?.[0]);
+          event.target.value = '';
+        }} />
+        <small style={{ fontWeight: 500 }}>{busy ? 'Uploading…' : imageUrl ? 'Choose an image to replace the current one.' : 'Choose an image for this special category (max 5 MB).'}</small>
+      </label>
+      {imageUrl && <img src={imageUrl} alt={`${categoryName} category preview`} style={{ width: '110px', height: '110px', borderRadius: '16px', objectFit: 'cover' }} />}
+      {message && <p role="status" style={{ margin: 0, color: message.startsWith('Could not') || message.startsWith('Run ') ? '#b42318' : '#087443' }}>{message}</p>}
+    </div>,
+    uploadHost,
   );
 }
