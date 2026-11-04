@@ -96,12 +96,22 @@ function OnlineCheckout() {
   );
 }
 
-function attachOnlineCheckout() {
-  const checkout = document.querySelector('.checkout-box');
-  if (!checkout || checkout.querySelector('.online-checkout-root')) return;
+function removeLegacyPaymentNotice() {
+  // Clean stale checkout markup even when the new checkout was already mounted.
+  document.querySelectorAll('small').forEach((notice) => {
+    if (/payment is not processed on this site/i.test(notice.textContent || '')) notice.remove();
+  });
+}
 
+function attachOnlineCheckout() {
+  removeLegacyPaymentNotice();
+  const checkout = document.querySelector('.checkout-box');
+  if (!checkout) return;
+
+  // Always remove legacy checkout controls before checking whether React is mounted.
   checkout.querySelector('button.primary-btn')?.remove();
   [...checkout.querySelectorAll('small')].filter((item) => /payment is not processed/i.test(item.textContent || '')).forEach((item) => item.remove());
+  if (checkout.querySelector('.online-checkout-root')) return;
 
   const container = document.createElement('div');
   container.className = 'online-checkout-root';
