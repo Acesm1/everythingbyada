@@ -73,12 +73,12 @@ function CartPage() {
     <main className="cart-page" aria-labelledby="cart-page-title">
       <div className="cart-page-heading">
         <div><span className="mini-label">Your shopping bag</span><h1 id="cart-page-title">Cart &amp; checkout</h1><p>Review your items and enter delivery details to pay securely.</p></div>
-        <button className="secondary-btn" type="button" onClick={() => { window.history.pushState({}, '', '/'); window.dispatchEvent(new PopStateEvent('popstate')); }}>Continue shopping</button>
+        <a className="secondary-btn" href="/">Continue shopping</a>
       </div>
       <div className="cart-page-layout">
         <section className="cart-page-items" aria-label="Items in your cart">
           <h2>Order items <span>({cart.reduce((sum, item) => sum + Number(item.qty || 0), 0)})</span></h2>
-          {!cart.length && <div className="cart-empty-state"><p>Your cart is empty.</p><button className="primary-btn" type="button" onClick={() => { window.history.pushState({}, '', '/'); window.dispatchEvent(new PopStateEvent('popstate')); }}>Browse products</button></div>}
+          {!cart.length && <div className="cart-empty-state"><p>Your cart is empty.</p><a className="primary-btn" href="/">Browse products</a></div>}
           {cart.map((item, index) => <article className="cart-page-item" key={item.id}>
             <img src={item.image || '/brand-mark.svg'} alt="" />
             <div className="cart-page-item-info"><strong>{item.name}</strong><span>{formatPrice(item.price)} each</span><div className="cart-page-quantity"><button type="button" onClick={() => changeQuantity(index, -1)} aria-label={`Remove one ${item.name}`}>−</button><span>{item.qty}</span><button type="button" onClick={() => changeQuantity(index, 1)} aria-label={`Add one ${item.name}`}>+</button></div></div>
@@ -137,17 +137,16 @@ function enhanceFooter() {
   if (!footer || footer.querySelector('.official-footer-details')) return;
   const details = document.createElement('div');
   details.className = 'official-footer-details';
-  details.innerHTML = '<div><strong>Shop with confidence</strong><span>Secure online payments</span><span>Order and delivery updates</span></div><div><strong>Customer care</strong><span>We are here to help with your orders.</span><span>Use your account to view order history.</span></div><div class="official-footer-bottom">© <span></span> Everything by Ada. All rights reserved.</div>';
+  details.innerHTML = '<div class="official-footer-contact"><strong>Contact us</strong><a href="tel:09068192327">09068192327</a></div><div class="official-footer-social"><strong>Follow us on TikTok</strong><a href="https://www.tiktok.com/@everythingbodiedbyada01" target="_blank" rel="noopener noreferrer">@everythingbodiedbyada01</a></div><div class="official-footer-bottom">© <span></span> Everything by Ada Body Glow. All rights reserved.</div>';
   details.querySelector('.official-footer-bottom span').textContent = new Date().getFullYear();
   footer.append(details);
   footer.classList.add('official-footer');
 }
 
 function syncCartPage() {
-  const app = document.querySelector('#root > .app-shell');
-  const header = app?.querySelector('.topbar');
+  const app = document.querySelector('#root .app-shell');
   const active = window.location.pathname === '/cart';
-  if (!app || !header) return;
+  if (!app) return;
   app.classList.toggle('cart-page-active', active);
   let container = document.getElementById('separate-cart-page-root');
   if (active && !container) {
@@ -165,8 +164,8 @@ function handleCartNavigation(event) {
   if (!button) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  window.history.pushState({}, '', '/cart');
-  window.dispatchEvent(new PopStateEvent('popstate'));
+  // Use a real document navigation so /cart loads as its own URL/page on Vercel.
+  window.location.assign('/cart');
 }
 
 const root = document.getElementById('root');
