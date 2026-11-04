@@ -6,8 +6,9 @@ const STAGED_RECEIPT_KEY = 'everythingbyada_staged_transfer_receipt';
 const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
 
 function BankTransferReceiptGate() {
-  const [dialog, setDialog] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const bypassNextSubmit = useRef(false);
@@ -15,9 +16,18 @@ function BankTransferReceiptGate() {
   const linkedOrders = useRef(new Set());
 
   useEffect(() => {
-    const interceptCheckout = (event) => {
-      const form = event.target;
-      if (!(form instanceof HTMLFormElement) || !form.matches('.cart-page-checkout')) return;
+    if (!file) {
+      setPreviewUrl('');
+      return undefined;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  useEffect(() => {
+    const handleSubmit = (event) => {
+      const form = event.currentTarget;
       if (form.querySelector('input[name="payment_method"]:checked')?.value !== 'bank_transfer') return;
       if (bypassNextSubmit.current) {
         bypassNextSubmit.current = false;
@@ -29,11 +39,32 @@ function BankTransferReceiptGate() {
       formRef.current = form;
       setFile(null);
       setError('');
-      setDialog('receipt');
+      setDialogOpen(true);
     };
 
-    document.addEventListener('submit', interceptCheckout, true);
-    return () => document.removeEventListener('submit', interceptCheckout, true);
+    const attachedForms = new Map();
+    const attachGate = () => {
+      const currentForms = new Set(document.querySelectorAll('form.cart-page-checkout'));
+      currentForms.forEach((form) => {
+        if (attachedForms.has(form)) return;
+        form.addEventListener('submit', handleSubmit, true);
+        attachedForms.set(form, handleSubmit);
+      });
+      attachedForms.forEach((listener, form) => {
+        if (currentForms.has(form)) return;
+        form.removeEventListener('submit', listener, true);
+        attachedForms.delete(form);
+      });
+    };
+
+    attachGate();
+    const observer = new MutationObserver(attachGate);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      attachedForms.forEach((listener, form) => form.removeEventListener('submit', listener, true));
+      attachedForms.clear();
+    };
   }, []);
 
   useEffect(() => {
@@ -108,11 +139,10 @@ function BankTransferReceiptGate() {
       });
       if (uploadError) throw uploadError;
 
-      sessionStorage.setItem(STAGED_RECEIPT_KEY, path);
       const form = formRef.current;
       if (!form?.isConnected) throw new Error('Checkout form is no longer available. Please retry checkout.');
-
-      setDialog(null);
+      sessionStorage.setItem(STAGED_RECEIPT_KEY, path);
+      setDialogOpen(false);
       bypassNextSubmit.current = true;
       form.requestSubmit();
     } catch (uploadError) {
@@ -122,23 +152,25 @@ function BankTransferReceiptGate() {
     }
   };
 
-  if (!dialog) return null;
+  if (!dialogOpen) return null;
 
   return createPortal(
-    <div className="receipt-upload-overlay" role="dialog" aria-modal="true" aria-labelledby="receipt-upload-title">
-      <section className="receipt-upload-modal">
-        <button type="button" className="receipt-upload-close" onClick={() => setDialog(null)} aria-label="Close receipt upload">×</button>
+    <div className="receipt-upload-overlay" role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget && !busy) setDialogOpen(false);
+    }}>
+      <section className="receipt-upload-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-upload-title">
+        <button type="button" className="receipt-upload-close" onClick={() => !busy && setDialogOpen(false)} aria-label="Close receipt upload" disabled={busy}>×</button>
         <span className="receipt-upload-step">Bank transfer · final step</span>
         <h2 id="receipt-upload-title">Confirm your payment</h2>
         <p>Before completing your order, make payment and send your transaction receipt. Upload the receipt, then click Next to proceed.</p>
         <label className="receipt-upload-picker">
           <span>{file ? file.name : 'Choose receipt image (max 5 MB)'}</span>
-          <input type="file" accept="image/*" disabled={busy} onChange={(event) => setFile(event.target.files?.[0] || null)} />
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={busy} onChange={(event) => setFile(event.target.files?.[0] || null)} />
         </label>
-        {file && <img className="receipt-upload-preview" src={URL.createObjectURL(file)} alt="Selected payment receipt preview" />}
+        {previewUrl && <img className="receipt-upload-preview" src={previewUrl} alt="Selected payment receipt preview" />}
         {error && <p className="receipt-upload-error" role="alert">{error}</p>}
         <div className="receipt-upload-actions">
-          <button type="button" className="secondary-admin-btn" onClick={() => setDialog(null)} disabled={busy}>Back</button>
+          <button type="button" className="secondary-admin-btn" onClick={() => setDialogOpen(false)} disabled={busy}>Back</button>
           <button type="button" className="primary-btn" onClick={continueCheckout} disabled={busy}>{busy ? 'Uploading receipt…' : 'Next'}</button>
         </div>
       </section>
