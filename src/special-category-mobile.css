@@ -5,29 +5,43 @@
 
   .special-category-card {
     min-height: 0;
-    padding: 14px 14px 16px;
+    padding: 14px;
   }
 
-  .special-category-card .category-icon,
+  /* Keep the same image proportions as larger breakpoints instead of forcing
+     a fixed mobile height that changes the crop. */
+  .special-category-card:has(.category-icon img) {
+    min-height: 0;
+    padding-top: 14px;
+  }
+
   .special-category-card .category-icon:has(img) {
     width: 100% !important;
-    height: 200px !important;
-    min-height: 200px;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    min-height: 0 !important;
     margin: 0 !important;
     border-radius: 18px !important;
     overflow: hidden !important;
     padding: 0 !important;
   }
 
-  .special-category-card:has(.category-icon img) {
-    min-height: 0;
-    padding-top: 0;
+  /* Make taps on the image resolve to the category button beneath it. */
+  .special-category-card .category-icon img {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    pointer-events: none;
   }
 }
 
 @media (max-width: 430px) {
-  .special-category-card .category-icon,
-  .special-category-card .category-icon:has(img) {
-    height: 180px !important;
+  .special-category-card {
+    padding: 12px;
+  }
+
+  .special-category-card:has(.category-icon img) {
+    padding-top: 12px;
   }
 }
