@@ -6,8 +6,7 @@ import './responsive.css';
 import './admin/admin.css';
 import './account-signup.jsx';
 import './customer-orders.jsx';
-import './paystack-checkout.js';
-import './payment-return.jsx';
+import './offline-payment.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
