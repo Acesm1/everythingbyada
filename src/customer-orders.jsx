@@ -22,7 +22,9 @@ function CustomerOrders() {
         return;
       }
       if (alive) setState((current) => ({ ...current, loading: true, user, error: '' }));
-      const { data, error } = await supabase.from('orders').select('id,total,status,items,created_at,payment_reference')
+      // Do not request payment_reference until its migration is installed; older
+      // databases should still be able to display this customer's order history.
+      const { data, error } = await supabase.from('orders').select('id,total,status,items,created_at')
         .eq('user_id', user.id).order('created_at', { ascending: false });
       if (!alive || currentRequest !== requestId) return;
       setState({ loading: false, user, orders: data || [], error: error?.message || '' });
