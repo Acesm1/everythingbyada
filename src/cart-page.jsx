@@ -7,10 +7,11 @@ const fieldStyle = { width: '100%', boxSizing: 'border-box', padding: '12px 14px
 const initialDelivery = { full_name: '', phone: '', address: '', city: '', state: '', postal_code: '', notes: '' };
 const readCart = () => { try { const items = JSON.parse(localStorage.getItem(CART_KEY) || '[]'); return Array.isArray(items) ? items : []; } catch { return []; } };
 const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
+// These are the bank details the store supplied for customers choosing bank transfer.
 const bankDetails = {
-  bankName: import.meta.env.VITE_BANK_TRANSFER_BANK_NAME || '',
-  accountName: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NAME || '',
-  accountNumber: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NUMBER || '',
+  bankName: import.meta.env.VITE_BANK_TRANSFER_BANK_NAME || 'Opay',
+  accountName: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NAME || 'Kenneth Blessing Amarachi',
+  accountNumber: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NUMBER || '9013494845',
 };
 const hasBankDetails = Object.values(bankDetails).every(Boolean);
 
@@ -61,8 +62,9 @@ function CartPage() {
       const items = cart.map((item) => ({ product_id: item.id, name: item.name, price: Number(item.price), quantity: Number(item.qty) }));
       if (paymentMethod === 'bank_transfer') {
         if (!hasBankDetails) throw new Error('Bank transfer is not available yet. Please contact the store.');
+        const orderId = crypto.randomUUID();
         const { error } = await supabase.from('orders').insert({
-          id: crypto.randomUUID(),
+          id: orderId,
           user_id: user.id,
           customer_name: delivery.full_name,
           customer_email: user.email,
@@ -80,7 +82,7 @@ function CartPage() {
         if (error) throw error;
         localStorage.removeItem(CART_KEY);
         setCart([]);
-        setOrderMessage('Your order has been placed. Transfer the exact total using the bank details below and use your order ID as the payment reference. The store will confirm your transfer.');
+        setOrderMessage(`Your order ${orderId} has been placed. Transfer the exact total using the bank details above and use your order ID as the payment reference. The store will confirm your transfer.`);
         return;
       }
 
@@ -138,7 +140,7 @@ function CartPage() {
           {paymentMethod === 'bank_transfer' && <section className="bank-transfer-details" aria-live="polite">
             <h3>Company bank details</h3>
             {hasBankDetails ? <dl><div><dt>Bank</dt><dd>{bankDetails.bankName}</dd></div><div><dt>Account name</dt><dd>{bankDetails.accountName}</dd></div><div><dt>Account number</dt><dd>{bankDetails.accountNumber}</dd></div></dl> : <p>Bank transfer details are not configured yet. Please contact the store before placing your order.</p>}
-            {hasBankDetails && <p>After placing your order, transfer <strong>{formatPrice(total)}</strong>. Use the order ID shown in your order history as the transfer reference. Your order remains awaiting transfer confirmation until the store verifies payment.</p>}
+            {hasBankDetails && <p>After placing your order, transfer <strong>{formatPrice(total)}</strong>. Use the order ID shown above as the payment reference. Your order remains awaiting transfer confirmation until the store verifies payment.</p>}
           </section>}
           <div className="cart-page-total"><span>Order total</span><strong>{formatPrice(total)}</strong></div>
           {message && <p role="alert" className="cart-page-error">{message}</p>}
