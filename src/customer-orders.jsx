@@ -22,9 +22,8 @@ function CustomerOrders() {
         return;
       }
       if (alive) setState((current) => ({ ...current, loading: true, user, error: '' }));
-      // Do not request payment_reference until its migration is installed; older
-      // databases should still be able to display this customer's order history.
-      const { data, error } = await supabase.from('orders').select('id,total,status,items,created_at')
+      const { data, error } = await supabase.from('orders')
+        .select('id,total,status,items,created_at,delivery_full_name,delivery_phone,delivery_address,delivery_city,delivery_state,delivery_postal_code,delivery_notes')
         .eq('user_id', user.id).order('created_at', { ascending: false });
       if (!alive || currentRequest !== requestId) return;
       setState({ loading: false, user, orders: data || [], error: error?.message || '' });
@@ -55,6 +54,12 @@ function CustomerOrders() {
           <ul>{(Array.isArray(order.items) ? order.items : []).map((item, index) => (
             <li key={`${item.product_id || item.name}-${index}`}>{item.name} × {item.quantity || item.qty || 1}</li>
           ))}</ul>
+          {order.delivery_address && <div style={{ paddingTop: 10, borderTop: '1px solid #eee5eb' }}>
+            <strong>Delivery to</strong>
+            <p style={{ marginBottom: 4 }}>{order.delivery_full_name} · {order.delivery_phone}</p>
+            <p style={{ margin: 0 }}>{[order.delivery_address, order.delivery_city, order.delivery_state, order.delivery_postal_code].filter(Boolean).join(', ')}</p>
+            {order.delivery_notes && <p style={{ marginBottom: 0 }}>Instructions: {order.delivery_notes}</p>}
+          </div>}
         </article>
       ))}
     </section>

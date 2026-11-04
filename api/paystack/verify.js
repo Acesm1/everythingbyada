@@ -6,6 +6,23 @@ const getBearerToken = (req) => {
   return match?.[1] || null;
 };
 
+const readDelivery = (input) => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const delivery = {
+    full_name: String(input.full_name || '').trim(),
+    phone: String(input.phone || '').trim(),
+    address: String(input.address || '').trim(),
+    city: String(input.city || '').trim(),
+    state: String(input.state || '').trim(),
+    postal_code: String(input.postal_code || '').trim(),
+    notes: String(input.notes || '').trim(),
+  };
+  if (!delivery.full_name || delivery.full_name.length > 120 || !delivery.phone || delivery.phone.length > 30
+    || !delivery.address || delivery.address.length > 250 || !delivery.city || delivery.city.length > 100
+    || !delivery.state || delivery.state.length > 100 || delivery.postal_code.length > 20 || delivery.notes.length > 500) return null;
+  return delivery;
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed.' });
 
@@ -52,6 +69,9 @@ export default async function handler(req, res) {
     if (transaction.currency !== 'NGN' || !Array.isArray(metadata.items) || metadata.items.length < 1 || metadata.items.length > 50) {
       return json(res, 400, { error: 'The verified payment details are invalid.' });
     }
+    const delivery = readDelivery(metadata.delivery);
+    if (!delivery) return json(res, 400, { error: 'The verified delivery details are invalid. Contact the store before trying again.' });
+
     const items = metadata.items.map((item) => ({
       product_id: item.product_id,
       name: String(item.name || '').slice(0, 200),
@@ -71,12 +91,19 @@ export default async function handler(req, res) {
     const { data: inserted, error: insertError } = await supabase.from('orders').insert({
       id: orderId,
       user_id: user.id,
-      customer_name: user.user_metadata?.full_name || user.email,
+      customer_name: delivery.full_name,
       customer_email: user.email,
       total: totalNaira,
       status: 'Paid',
       items,
       payment_reference: reference,
+      delivery_full_name: delivery.full_name,
+      delivery_phone: delivery.phone,
+      delivery_address: delivery.address,
+      delivery_city: delivery.city,
+      delivery_state: delivery.state,
+      delivery_postal_code: delivery.postal_code,
+      delivery_notes: delivery.notes,
     }).select('id,status').single();
 
     if (insertError) {
