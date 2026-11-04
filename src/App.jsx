@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import DatabaseApp from './DatabaseApp';
 import SpecialCategoryImages from './SpecialCategoryImages';
+import AdminOrdersPanel from './AdminOrdersPanel';
 import AdminReceiptReview from './AdminReceiptReview';
 import BankTransferReceiptGate from './BankTransferReceiptGate';
 
@@ -52,6 +53,7 @@ export default function App() {
   return <>
     <DatabaseApp />
     <SpecialCategoryImages />
+    <AdminOrdersPanel />
     <AdminReceiptReview />
     <BankTransferReceiptGate />
     <WhatsAppSupportButton />
