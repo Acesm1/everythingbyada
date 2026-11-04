@@ -22,8 +22,10 @@ function CartPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [orderMessage, setOrderMessage] = useState('');
+  const [showBankTransferPopup, setShowBankTransferPopup] = useState(false);
   const [showWhatsAppPopup, setShowWhatsAppPopup] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
   const total = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
 
   useEffect(() => {
@@ -35,6 +37,10 @@ function CartPage() {
       window.removeEventListener('everythingbyada-cart-updated', refresh);
     };
   }, []);
+
+  const openBankTransferPopup = () => {
+    setShowBankTransferPopup(true);
+  };
 
   const changeQuantity = (index, amount) => {
     const rows = [...document.querySelectorAll('#cart .cart-item')];
@@ -85,8 +91,9 @@ function CartPage() {
         localStorage.removeItem(CART_KEY);
         setCart([]);
         setPendingOrderId(orderId);
+        setShowBankTransferPopup(false);
         setShowWhatsAppPopup(true);
-        setOrderMessage(`Your order ${orderId} has been placed. Transfer the exact total using the bank details above and use your order ID as the payment reference. The store will confirm your transaction once payment is received.`);
+        setOrderMessage(`Your order ${orderId} has been placed. Transfer the exact total using the bank details above and use your order ID as the payment reference. The store will confirm your transfer.`);
         return;
       }
 
@@ -112,21 +119,51 @@ function CartPage() {
     </label>
   );
 
+  const continueBankTransfer = () => {
+    if (!receiptFile) {
+      setMessage('Please upload a receipt image before continuing.');
+      return;
+    }
+    setShowBankTransferPopup(false);
+    setShowWhatsAppPopup(true);
+  };
+
   return (
     <>
+      {showBankTransferPopup && (
+        <div className="receipt-upload-overlay" role="dialog" aria-modal="true" aria-labelledby="bank-transfer-popup-title" onClick={() => setShowBankTransferPopup(false)}>
+          <div className="receipt-upload-modal" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="receipt-upload-close" onClick={() => setShowBankTransferPopup(false)} aria-label="Close bank transfer popup">×</button>
+            <span className="receipt-upload-step">Bank transfer · payment</span>
+            <h3 id="bank-transfer-popup-title">Confirm your transfer</h3>
+            <p>Transfer <strong>{formatPrice(total)}</strong> to the account below. Upload proof of payment and then continue.</p>
+            <div className="bank-transfer-inline-details">
+              <div><span>Bank</span><strong>{bankDetails.bankName}</strong></div>
+              <div><span>Account name</span><strong>{bankDetails.accountName}</strong></div>
+              <div><span>Account number</span><strong>{bankDetails.accountNumber}</strong></div>
+            </div>
+            <label className="receipt-upload-picker">
+              <span>{receiptFile ? receiptFile.name : 'Upload payment receipt'}</span>
+              <input type="file" accept="image/*" onChange={(event) => setReceiptFile(event.target.files?.[0] || null)} />
+            </label>
+            {receiptFile && <img className="receipt-upload-preview" src={URL.createObjectURL(receiptFile)} alt="Selected payment receipt" />}
+            <div className="receipt-upload-actions">
+              <button type="button" className="secondary-btn" onClick={() => setShowBankTransferPopup(false)}>Back</button>
+              <button type="button" className="primary-btn" onClick={continueBankTransfer}>Continue</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showWhatsAppPopup && (
         <div className="order-confirmation-overlay" role="dialog" aria-modal="true" aria-labelledby="whatsapp-order-popup-title" onClick={() => setShowWhatsAppPopup(false)}>
           <div className="order-confirmation-modal" onClick={(event) => event.stopPropagation()}>
-            <button type="button" className="order-confirmation-close" onClick={() => setShowWhatsAppPopup(false)} aria-label="Close order confirmation">
-              ×
-            </button>
+            <button type="button" className="order-confirmation-close" onClick={() => setShowWhatsAppPopup(false)} aria-label="Close order confirmation">×</button>
             <h3 id="whatsapp-order-popup-title">Order placed</h3>
-            <p>
-              Click the link to send your order reference ID and make payment for your delivery.
-            </p>
+            <p>Click the link to send your order reference ID and confirm your bank transfer payment.</p>
             <a
               className="order-confirmation-whatsapp"
-              href={`${whatsappLink}?text=${encodeURIComponent(`Hello, my order reference ID is ${pendingOrderId}. Please confirm my bank transfer payment.`)}`}
+              href={`${whatsappLink}?text=${encodeURIComponent(`Hello, my order reference ID is ${pendingOrderId || 'pending'}. Please confirm my bank transfer payment.`)}`}
               target="_blank"
               rel="noreferrer"
             >
@@ -147,7 +184,7 @@ function CartPage() {
             {!cart.length && <div className="cart-empty-state"><p>Your cart is empty.</p><a className="primary-btn" href="/">Browse products</a></div>}
             {cart.map((item, index) => <article className="cart-page-item" key={item.id}>
               <img src={item.image || '/brand-mark.svg'} alt="" />
-              <div className="cart-page-item-info"><strong>{item.name}</strong><span>{formatPrice(item.price)} each</span><div className="cart-page-quantity"><button type="button" onClick={() => changeQuantity(index, -1)} aria-label={`Remove one ${item.name}`}>−</button><span>{item.qty}</span><button type="button" onClick={() => changeQuantity(index, 1)} aria-label={`Add one ${item.name}`}>+</button></div></div>
+              <div className="cart-page-item-info"><strong>{item.name}</strong><span>{formatPrice(item.price)} each</span><div className="cart-page-quantity"><button type="button" onClick={() => changeQuantity(index, -1)} aria-label={`Decrease quantity for ${item.name}`}>−</button><span>{item.qty}</span><button type="button" onClick={() => changeQuantity(index, 1)} aria-label={`Increase quantity for ${item.name}`}>+</button></div></div>
               <strong className="cart-page-line-total">{formatPrice(Number(item.price || 0) * Number(item.qty || 0))}</strong>
             </article>)}
           </section>
@@ -158,16 +195,16 @@ function CartPage() {
             {field('Street address', 'address', 'text', 'shipping address-line1')}
             <div className="cart-page-field-row">{field('City', 'city', 'text', 'shipping address-level2')}{field('State', 'state', 'text', 'shipping address-level1')}</div>
             {field('Postal code', 'postal_code', 'text', 'shipping postal-code', false)}
-            <label className="cart-checkout-field">Delivery instructions <span className="optional-label">(optional)</span><textarea name="notes" rows="3" maxLength="500" value={delivery.notes} onChange={(event) => setDelivery((current) => ({ ...current, notes: event.target.value }))} style={{ ...fieldStyle, resize: 'vertical' }} /></label>
+            <label className="cart-checkout-field">Delivery instructions <span className="optional-label">(optional)</span><textarea name="notes" rows="3" maxLength="500" value={delivery.notes} onChange={(event) => setDelivery((current) => ({ ...current, notes: event.target.value }))} style={{ ...fieldStyle, minHeight: 92, resize: 'vertical' }} /></label>
             <fieldset className="cart-payment-options">
               <legend>Choose payment method</legend>
-              <label className="cart-payment-option"><input type="radio" name="payment_method" value="paystack" checked={paymentMethod === 'paystack'} onChange={() => setPaymentMethod('paystack')} /> Pay online with Paystack</label>
-              <label className="cart-payment-option"><input type="radio" name="payment_method" value="bank_transfer" checked={paymentMethod === 'bank_transfer'} onChange={() => setPaymentMethod('bank_transfer')} /> Pay by bank transfer</label>
+              <label className="cart-payment-option"><input type="radio" name="payment_method" value="paystack" checked={paymentMethod === 'paystack'} onChange={() => { setPaymentMethod('paystack'); setShowBankTransferPopup(false); }} />Pay online with Paystack</label>
+              <label className="cart-payment-option"><input type="radio" name="payment_method" value="bank_transfer" checked={paymentMethod === 'bank_transfer'} onChange={() => { setPaymentMethod('bank_transfer'); openBankTransferPopup(); }} />Pay via bank transfer</label>
             </fieldset>
             {paymentMethod === 'bank_transfer' && <section className="bank-transfer-details" aria-live="polite">
               <h3>Company bank details</h3>
-              {hasBankDetails ? <dl><div><dt>Bank</dt><dd>{bankDetails.bankName}</dd></div><div><dt>Account name</dt><dd>{bankDetails.accountName}</dd></div><div><dt>Account number</dt><dd>{bankDetails.accountNumber}</dd></div></dl> : <p>Bank transfer details are not configured yet. Please contact the store before placing your order.</p>}
-              {hasBankDetails && <p>After placing your order, transfer <strong>{formatPrice(total)}</strong>. Use the order ID shown above as the payment reference. Your order remains awaiting transfer confirmation.</p>}
+              {hasBankDetails ? <dl><div><dt>Bank</dt><dd>{bankDetails.bankName}</dd></div><div><dt>Account name</dt><dd>{bankDetails.accountName}</dd></div><div><dt>Account number</dt><dd>{bankDetails.accountNumber}</dd></div></dl> : <p>Bank transfer is not available yet. Please contact the store.</p>}
+              {hasBankDetails && <p>After placing your order, transfer <strong>{formatPrice(total)}</strong>. Use the order ID shown above as the payment reference. Your order remains awaiting confirmation until the transfer is verified.</p>}
             </section>}
             <div className="cart-page-total"><span>Order total</span><strong>{formatPrice(total)}</strong></div>
             {message && <p role="alert" className="cart-page-error">{message}</p>}
@@ -214,8 +251,8 @@ function enhanceFooter() {
   if (!footer || footer.querySelector('.official-footer-details')) return;
   const details = document.createElement('div');
   details.className = 'official-footer-details';
-  details.innerHTML = '<div class="official-footer-contact"><strong>Contact us</strong><a href="tel:09068192327">09068192327</a></div><div class="official-footer-social"><strong>Follow us on TikTok</strong><a href="https://www.tiktok.com/@everythingbyada" target="_blank" rel="noreferrer">@everythingbyada</a></div><div class="official-footer-social"><strong>Instagram</strong><a href="https://instagram.com/everythingbyada" target="_blank" rel="noreferrer">@everythingbyada</a></div><div class="official-footer-social"><strong>WhatsApp</strong><a href="https://wa.me/2349068192327" target="_blank" rel="noreferrer">Chat support</a></div><div class="official-footer-bottom"><span>©</span> <span></span></div>';
-  details.querySelector('.official-footer-bottom span:last-child').textContent = new Date().getFullYear();
+  details.innerHTML = '<div class="official-footer-contact"><strong>Contact us</strong><a href="tel:09068192327">09068192327</a></div><div class="official-footer-social"><strong>Follow us on TikTok</strong><a href="https://www.tiktok.com/@everythingbyada" target="_blank" rel="noreferrer">@everythingbyada</a></div><div class="official-footer-bottom"><span>© <span></span> Everything By Ada.</span><span>Fresh beauty, delivered with care.</span></div>';
+  details.querySelector('.official-footer-bottom span:first-child span').textContent = new Date().getFullYear();
   footer.append(details);
   footer.classList.add('official-footer');
 }
