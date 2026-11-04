@@ -7,6 +7,7 @@ import './admin/admin.css';
 import './account-signup.jsx';
 import './customer-orders.jsx';
 import './offline-payment.jsx';
+import './cart-page.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
