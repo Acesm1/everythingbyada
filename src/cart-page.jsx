@@ -7,12 +7,20 @@ const fieldStyle = { width: '100%', boxSizing: 'border-box', padding: '12px 14px
 const initialDelivery = { full_name: '', phone: '', address: '', city: '', state: '', postal_code: '', notes: '' };
 const readCart = () => { try { const items = JSON.parse(localStorage.getItem(CART_KEY) || '[]'); return Array.isArray(items) ? items : []; } catch { return []; } };
 const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
+const bankDetails = {
+  bankName: import.meta.env.VITE_BANK_TRANSFER_BANK_NAME || '',
+  accountName: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NAME || '',
+  accountNumber: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NUMBER || '',
+};
+const hasBankDetails = Object.values(bankDetails).every(Boolean);
 
 function CartPage() {
   const [cart, setCart] = useState(readCart);
   const [delivery, setDelivery] = useState(initialDelivery);
+  const [paymentMethod, setPaymentMethod] = useState('paystack');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [orderMessage, setOrderMessage] = useState('');
   const total = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
 
   useEffect(() => {
@@ -33,26 +41,53 @@ function CartPage() {
     window.setTimeout(() => setCart(readCart()), 250);
   };
 
-  const pay = async (event) => {
+  const submitOrder = async (event) => {
     event.preventDefault();
     setMessage('');
+    setOrderMessage('');
     if (!cart.length) return setMessage('Your cart is empty. Add products before checkout.');
     if (!supabase) return setMessage('Checkout is unavailable right now. Please contact the store.');
 
-    const { data, error } = await supabase.auth.getSession();
-    const session = data?.session;
-    if (error || !session?.access_token) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+    const user = session?.user;
+    if (sessionError || !session?.access_token || !user) {
       window.location.href = '/account';
       return;
     }
 
     setBusy(true);
     try {
-      const items = cart.map((item) => ({ product_id: item.id, quantity: Number(item.qty) }));
+      const items = cart.map((item) => ({ product_id: item.id, name: item.name, price: Number(item.price), quantity: Number(item.qty) }));
+      if (paymentMethod === 'bank_transfer') {
+        if (!hasBankDetails) throw new Error('Bank transfer is not available yet. Please contact the store.');
+        const { error } = await supabase.from('orders').insert({
+          id: crypto.randomUUID(),
+          user_id: user.id,
+          customer_name: delivery.full_name,
+          customer_email: user.email,
+          total,
+          status: 'Awaiting bank transfer',
+          items,
+          delivery_full_name: delivery.full_name,
+          delivery_phone: delivery.phone,
+          delivery_address: delivery.address,
+          delivery_city: delivery.city,
+          delivery_state: delivery.state,
+          delivery_postal_code: delivery.postal_code,
+          delivery_notes: delivery.notes,
+        });
+        if (error) throw error;
+        localStorage.removeItem(CART_KEY);
+        setCart([]);
+        setOrderMessage('Your order has been placed. Transfer the exact total using the bank details below and use your order ID as the payment reference. The store will confirm your transfer.');
+        return;
+      }
+
       const response = await fetch('/api/paystack/initialize', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, delivery }),
+        body: JSON.stringify({ items: items.map(({ product_id, quantity }) => ({ product_id, quantity })), delivery }),
       });
       const result = await response.json();
       if (!response.ok || !result.authorization_url) throw new Error(result.error || 'Could not start secure checkout.');
@@ -60,6 +95,8 @@ function CartPage() {
     } catch (error) {
       setMessage(error.message || 'Could not start payment. Please try again.');
       setBusy(false);
+    } finally {
+      if (paymentMethod === 'bank_transfer') setBusy(false);
     }
   };
 
@@ -85,7 +122,7 @@ function CartPage() {
             <strong className="cart-page-line-total">{formatPrice(Number(item.price || 0) * Number(item.qty || 0))}</strong>
           </article>)}
         </section>
-        <form className="cart-page-checkout" onSubmit={pay}>
+        <form className="cart-page-checkout" onSubmit={submitOrder}>
           <span className="mini-label">Secure checkout</span><h2>Delivery details</h2><p className="cart-page-subheading">Tell us where to deliver your order.</p>
           {field('Recipient full name', 'full_name', 'text', 'name')}
           {field('Phone number', 'phone', 'tel', 'tel')}
@@ -93,11 +130,21 @@ function CartPage() {
           <div className="cart-page-field-row">{field('City', 'city', 'text', 'shipping address-level2')}{field('State', 'state', 'text', 'shipping address-level1')}</div>
           {field('Postal code', 'postal_code', 'text', 'shipping postal-code', false)}
           <label className="cart-checkout-field">Delivery instructions <span className="optional-label">(optional)</span><textarea name="notes" rows="3" maxLength="500" value={delivery.notes} onChange={(event) => setDelivery((current) => ({ ...current, notes: event.target.value }))} placeholder="Apartment, landmark, or other helpful details" style={{ ...fieldStyle, resize: 'vertical' }} /></label>
+          <fieldset className="cart-payment-options">
+            <legend>Choose payment method</legend>
+            <label className="cart-payment-option"><input type="radio" name="payment_method" value="paystack" checked={paymentMethod === 'paystack'} onChange={() => setPaymentMethod('paystack')} /><span><strong>Pay online with Paystack</strong><small>Card and other available secure payment options</small></span></label>
+            <label className="cart-payment-option"><input type="radio" name="payment_method" value="bank_transfer" checked={paymentMethod === 'bank_transfer'} onChange={() => setPaymentMethod('bank_transfer')} /><span><strong>Bank transfer</strong><small>Transfer directly to the store’s bank account</small></span></label>
+          </fieldset>
+          {paymentMethod === 'bank_transfer' && <section className="bank-transfer-details" aria-live="polite">
+            <h3>Company bank details</h3>
+            {hasBankDetails ? <dl><div><dt>Bank</dt><dd>{bankDetails.bankName}</dd></div><div><dt>Account name</dt><dd>{bankDetails.accountName}</dd></div><div><dt>Account number</dt><dd>{bankDetails.accountNumber}</dd></div></dl> : <p>Bank transfer details are not configured yet. Please contact the store before placing your order.</p>}
+            {hasBankDetails && <p>After placing your order, transfer <strong>{formatPrice(total)}</strong>. Use the order ID shown in your order history as the transfer reference. Your order remains awaiting transfer confirmation until the store verifies payment.</p>}
+          </section>}
           <div className="cart-page-total"><span>Order total</span><strong>{formatPrice(total)}</strong></div>
-          <div className="cart-page-payment"><strong>Online payment with Paystack</strong><span>Pay securely with your bank card or other available payment options.</span></div>
           {message && <p role="alert" className="cart-page-error">{message}</p>}
-          <button className="primary-btn full-width" type="submit" disabled={busy || !cart.length}>{busy ? 'Connecting to secure payment…' : 'Continue to secure payment'}</button>
-          <small className="cart-page-secure-note">Secure payment processing by Paystack.</small>
+          {orderMessage && <p role="status" className="cart-page-order-success">{orderMessage}</p>}
+          <button className="primary-btn full-width" type="submit" disabled={busy || !cart.length || (paymentMethod === 'bank_transfer' && !hasBankDetails)}>{busy ? (paymentMethod === 'bank_transfer' ? 'Placing transfer order…' : 'Connecting to secure payment…') : paymentMethod === 'bank_transfer' ? 'Place bank transfer order' : 'Continue to secure payment'}</button>
+          {paymentMethod === 'paystack' && <small className="cart-page-secure-note">Secure payment processing by Paystack.</small>}
         </form>
       </div>
     </main>
