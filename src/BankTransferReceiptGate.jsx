@@ -49,6 +49,7 @@ function BankTransferReceiptGate() {
         p_order_id: match[1],
         p_receipt_path: receiptPath,
       });
+
       if (!rpcError) {
         sessionStorage.removeItem(STAGED_RECEIPT_KEY);
         return;
@@ -125,9 +126,11 @@ function BankTransferReceiptGate() {
   if (!dialog) return null;
 
   return createPortal(
-    <div className="receipt-upload-overlay" role="dialog" aria-modal="true" aria-labelledby="receipt-upload-title">
-      <section className="receipt-upload-modal">
-        <button type="button" className="receipt-upload-close" onClick={() => setDialog(null)} aria-label="Close receipt upload">×</button>
+    <div className="receipt-upload-overlay" role="dialog" aria-modal="true" aria-labelledby="receipt-upload-title" onClick={(event) => {
+      if (event.target === event.currentTarget) setDialog(null);
+    }}>
+      <section className="receipt-upload-modal" role="document">
+        <button type="button" className="receipt-upload-close" onClick={() => setDialog(null)} aria-label="Close receipt upload" disabled={busy}>×</button>
         <span className="receipt-upload-step">Bank transfer · final step</span>
         <h2 id="receipt-upload-title">Confirm your payment</h2>
         <p>Before completing your order, make payment and send your transaction receipt. Upload the receipt, then click Next to proceed.</p>
@@ -138,7 +141,7 @@ function BankTransferReceiptGate() {
         {file && <img className="receipt-upload-preview" src={URL.createObjectURL(file)} alt="Selected payment receipt preview" />}
         {error && <p className="receipt-upload-error" role="alert">{error}</p>}
         <div className="receipt-upload-actions">
-          <button type="button" className="secondary-admin-btn" onClick={() => setDialog(null)} disabled={busy}>Back</button>
+          <button type="button" className="secondary-btn" onClick={() => setDialog(null)} disabled={busy}>Back</button>
           <button type="button" className="primary-btn" onClick={continueCheckout} disabled={busy}>{busy ? 'Uploading receipt…' : 'Next'}</button>
         </div>
       </section>
