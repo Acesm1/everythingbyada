@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import DatabaseApp from './DatabaseApp';
 import SpecialCategoryImages from './SpecialCategoryImages';
+import AdminReceiptReview from './AdminReceiptReview';
+import BankTransferReceiptGate from './BankTransferReceiptGate';
 
 function WhatsAppSupportButton() {
   const [visible, setVisible] = useState(false);
@@ -41,15 +43,7 @@ function WhatsAppSupportButton() {
         }
         .whatsapp-float-button:hover { transform: translateY(-2px); }
       `}</style>
-      <a
-        className="whatsapp-float-button"
-        href="https://wa.me/2349068192327"
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Chat on WhatsApp"
-      >
-        WA
-      </a>
+      <a className="whatsapp-float-button" href="https://wa.me/2349068192327" target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">WA</a>
     </>
   );
 }
@@ -58,6 +52,8 @@ export default function App() {
   return <>
     <DatabaseApp />
     <SpecialCategoryImages />
+    <AdminReceiptReview />
+    <BankTransferReceiptGate />
     <WhatsAppSupportButton />
   </>;
 }
