@@ -8,30 +8,29 @@
     padding: 14px;
   }
 
-  /* Keep the same image proportions as larger breakpoints instead of forcing
-     a fixed mobile height that changes the crop. */
   .special-category-card:has(.category-icon img) {
     min-height: 0;
     padding-top: 14px;
   }
 
+  /* Use the compact circular category image on mobile only. */
   .special-category-card .category-icon:has(img) {
-    width: 100% !important;
-    height: auto !important;
-    aspect-ratio: 16 / 9;
-    min-height: 0 !important;
-    margin: 0 !important;
-    border-radius: 18px !important;
+    width: 112px !important;
+    height: 112px !important;
+    aspect-ratio: 1 / 1;
+    min-height: 112px !important;
+    margin: 0 auto !important;
+    border-radius: 50% !important;
     overflow: hidden !important;
     padding: 0 !important;
   }
 
-  /* Make taps on the image resolve to the category button beneath it. */
   .special-category-card .category-icon img {
     display: block;
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
+    border-radius: 50% !important;
     pointer-events: none;
   }
 }
@@ -43,5 +42,11 @@
 
   .special-category-card:has(.category-icon img) {
     padding-top: 12px;
+  }
+
+  .special-category-card .category-icon:has(img) {
+    width: 96px !important;
+    height: 96px !important;
+    min-height: 96px !important;
   }
 }
