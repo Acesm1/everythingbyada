@@ -12,6 +12,7 @@ function AdminOrdersPanel() {
   const [filter, setFilter] = useState('All');
   const [loading, setLoading] = useState(false);
   const [busyOrder, setBusyOrder] = useState(null);
+  const [openingReceipt, setOpeningReceipt] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -70,7 +71,7 @@ function AdminOrdersPanel() {
     setLoading(true);
     setError('');
     const { data, error: queryError } = await supabase.from('orders')
-      .select('id,customer_name,customer_email,total,status,items,created_at,payment_reference,delivery_full_name,delivery_phone,delivery_address,delivery_city,delivery_state,delivery_postal_code,delivery_notes')
+      .select('id,user_id,customer_name,customer_email,total,status,items,created_at,payment_reference,receipt_path,delivery_full_name,delivery_phone,delivery_address,delivery_city,delivery_state,delivery_postal_code,delivery_notes')
       .order('created_at', { ascending: false });
     if (queryError) setError(`Could not load orders: ${queryError.message}`);
     else setOrders(data || []);
@@ -95,6 +96,21 @@ function AdminOrdersPanel() {
     setBusyOrder(null);
   };
 
+  const reviewReceipt = async (order) => {
+    if (!supabase || !isAdmin || !order.receipt_path) return;
+    setOpeningReceipt(order.id);
+    setError('');
+    const { data, error: signedUrlError } = await supabase.storage
+      .from('order-receipts')
+      .createSignedUrl(order.receipt_path, 60);
+    setOpeningReceipt(null);
+    if (signedUrlError || !data?.signedUrl) {
+      setError(`Could not open receipt for order ${order.id}: ${signedUrlError?.message || 'Unknown error'}`);
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  };
+
   if (!host || !isAdmin) return null;
 
   return createPortal(
@@ -108,23 +124,41 @@ function AdminOrdersPanel() {
         <button type="button" className="secondary-admin-btn" onClick={loadOrders} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh orders'}</button>
       </div>
       {error && <p role="alert">{error}</p>}
-      {loading && orders.length === 0 ? <p>Loading orders…</p> : visibleOrders.length === 0 ? <p>No {filter === 'All' ? '' : `${filter.toLowerCase()} `}orders.</p> : visibleOrders.map((order) => (
-        <article className="order-row" key={order.id} style={{ display: 'block', marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <strong>Order {order.id}</strong><span>{order.status || 'Pending'}</span>
-          </div>
-          <p>{order.created_at ? new Date(order.created_at).toLocaleString() : 'Date unavailable'} · {formatPrice(order.total)}</p>
-          <div><strong>Customer</strong><p>{order.delivery_full_name || order.customer_name || 'Name unavailable'}{order.customer_email ? ` · ${order.customer_email}` : ''}{order.delivery_phone ? ` · ${order.delivery_phone}` : ''}</p></div>
-          {(order.delivery_address || order.delivery_city || order.delivery_state || order.delivery_postal_code) && <div><strong>Delivery address</strong><p>{[order.delivery_address, order.delivery_city, order.delivery_state, order.delivery_postal_code].filter(Boolean).join(', ')}</p></div>}
-          {order.delivery_notes && <p><strong>Delivery instructions:</strong> {order.delivery_notes}</p>}
-          {Array.isArray(order.items) && order.items.length > 0 && <div><strong>Items</strong><ul>{order.items.map((item, index) => <li key={`${item.product_id || item.name}-${index}`}>{item.name} × {item.quantity || item.qty || 1}{item.price != null ? ` — ${formatPrice(item.price)}` : ''}</li>)}</ul></div>}
-          {order.payment_reference && <p><strong>Payment reference:</strong> {order.payment_reference}</p>}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-            <button type="button" className="primary-admin-btn" onClick={() => updateStatus(order, 'Accepted')} disabled={busyOrder === order.id || order.status === 'Accepted'}>Accept</button>
-            <button type="button" className="secondary-admin-btn" onClick={() => updateStatus(order, 'Declined')} disabled={busyOrder === order.id || order.status === 'Declined'}>Decline</button>
-          </div>
-        </article>
-      ))}
+      {loading && orders.length === 0 ? <p>Loading orders…</p> : visibleOrders.length === 0 ? <p>No {filter === 'All' ? '' : `${filter.toLowerCase()} `}orders.</p> : visibleOrders.map((order) => {
+        const awaitingBankTransfer = order.status === 'Awaiting bank transfer';
+        return (
+          <article className="order-row" key={order.id} style={{ display: 'block', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <strong>Order {order.id}</strong><span>{order.status || 'Pending'}</span>
+            </div>
+            <p>{order.created_at ? new Date(order.created_at).toLocaleString() : 'Date unavailable'} · {formatPrice(order.total)}</p>
+            <div><strong>Customer</strong><p>{order.delivery_full_name || order.customer_name || 'Name unavailable'}{order.customer_email ? ` · ${order.customer_email}` : ''}{order.delivery_phone ? ` · ${order.delivery_phone}` : ''}</p></div>
+            {(order.delivery_address || order.delivery_city || order.delivery_state || order.delivery_postal_code) && <div><strong>Delivery address</strong><p>{[order.delivery_address, order.delivery_city, order.delivery_state, order.delivery_postal_code].filter(Boolean).join(', ')}</p></div>}
+            {order.delivery_notes && <p><strong>Delivery instructions:</strong> {order.delivery_notes}</p>}
+            {Array.isArray(order.items) && order.items.length > 0 && <div><strong>Items</strong><ul>{order.items.map((item, index) => <li key={`${item.product_id || item.name}-${index}`}>{item.name} × {item.quantity || item.qty || 1}{item.price != null ? ` — ${formatPrice(item.price)}` : ''}</li>)}</ul></div>}
+            {order.payment_reference && <p><strong>Payment reference:</strong> {order.payment_reference}</p>}
+
+            {awaitingBankTransfer && (
+              <div className="admin-receipt-review">
+                <strong>Transaction receipt</strong>
+                {order.receipt_path ? (
+                  <>
+                    <p>Receipt uploaded for this order.</p>
+                    <button type="button" className="secondary-admin-btn" onClick={() => reviewReceipt(order)} disabled={openingReceipt === order.id}>
+                      {openingReceipt === order.id ? 'Opening receipt…' : 'View uploaded receipt'}
+                    </button>
+                  </>
+                ) : <p>No transaction receipt uploaded yet.</p>}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              <button type="button" className="primary-admin-btn" onClick={() => updateStatus(order, 'Accepted')} disabled={busyOrder === order.id || order.status === 'Accepted' || (awaitingBankTransfer && !order.receipt_path)} title={awaitingBankTransfer && !order.receipt_path ? 'Customer receipt is required before accepting this bank-transfer order.' : ''}>Accept</button>
+              <button type="button" className="secondary-admin-btn" onClick={() => updateStatus(order, 'Declined')} disabled={busyOrder === order.id || order.status === 'Declined'}>Decline</button>
+            </div>
+          </article>
+        );
+      })}
     </div>,
     host,
   );
