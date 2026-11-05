@@ -1,0 +1,174 @@
+/* Cart-only styling for the working bank-transfer receipt upload flow. */
+.receipt-upload-overlay--classic {
+  z-index: 120;
+  padding: 22px;
+  background: rgba(36, 24, 31, 0.62);
+  backdrop-filter: blur(5px);
+}
+
+/* The legacy cart dialog is a duplicate; the receipt gate below handles upload and checkout. */
+.receipt-upload-overlay:has(#bank-transfer-popup-title) {
+  display: none !important;
+}
+
+.receipt-upload-modal--classic {
+  position: relative;
+  width: min(100%, 560px);
+  max-height: min(90vh, 820px);
+  overflow: auto;
+  padding: clamp(24px, 5vw, 42px);
+  border: 1px solid #f3c9dc;
+  border-radius: 28px;
+  background: linear-gradient(180deg, #fff 0%, #fff9fc 100%);
+  box-shadow: 0 28px 80px rgba(48, 23, 38, 0.28);
+  color: #251d22;
+}
+
+.receipt-upload-modal--classic::before {
+  position: absolute;
+  top: 0;
+  right: 28px;
+  left: 28px;
+  height: 4px;
+  border-radius: 0 0 5px 5px;
+  background: linear-gradient(90deg, #ff2b8c, #ffc1dc);
+  content: '';
+}
+
+.receipt-upload-modal--classic .receipt-upload-close {
+  top: 18px;
+  right: 18px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #f4dce7;
+  border-radius: 50%;
+  background: #fff;
+  color: #5d4c55;
+  font-size: 1.5rem;
+}
+
+.receipt-upload-modal--classic .receipt-upload-step {
+  margin: 0 42px 10px 0;
+  color: #e81a7c;
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.receipt-upload-modal--classic h2 {
+  margin: 0 48px 10px 0;
+  color: #241d21;
+  font: 800 clamp(1.7rem, 5vw, 2.2rem)/1.15 'Baloo 2', sans-serif;
+}
+
+.receipt-upload-intro {
+  margin: 0 0 20px;
+  color: #665a61;
+  font-size: .98rem;
+  line-height: 1.65;
+}
+
+.receipt-transfer-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border: 1px solid #f2c4d9;
+  border-radius: 16px;
+  background: #fff1f7;
+}
+
+.receipt-transfer-summary span {
+  color: #6a5661;
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.receipt-transfer-summary strong {
+  color: #c91569;
+  font-size: clamp(1.25rem, 4vw, 1.65rem);
+  white-space: nowrap;
+}
+
+.receipt-bank-details {
+  display: grid;
+  gap: 0;
+  margin: 0 0 18px;
+  padding: 4px 18px;
+  border: 1px solid #eee2e8;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.receipt-bank-details > div {
+  display: grid;
+  grid-template-columns: minmax(100px, .7fr) minmax(0, 1.3fr);
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid #f2eaf0;
+}
+
+.receipt-bank-details > div:last-child { border-bottom: 0; }
+.receipt-bank-details dt { color: #766b71; font-size: .87rem; }
+.receipt-bank-details dd { margin: 0; color: #2b2228; font-weight: 750; overflow-wrap: anywhere; }
+
+.receipt-upload-picker--classic {
+  display: grid;
+  gap: 8px;
+  min-height: 58px;
+  padding: 15px 16px;
+  border: 1.5px dashed #e997bb;
+  border-radius: 15px;
+  background: #fff7fb;
+  color: #a5165c;
+  font-weight: 700;
+}
+
+.receipt-upload-picker--classic input {
+  max-width: 100%;
+  color: #655961;
+  font-size: .85rem;
+}
+
+.receipt-upload-modal--classic .receipt-upload-preview {
+  width: 100%;
+  max-height: 220px;
+  margin-top: 12px;
+  border: 1px solid #f1dce6;
+  border-radius: 14px;
+  object-fit: contain;
+  background: #fff;
+}
+
+.receipt-upload-modal--classic .receipt-upload-error {
+  margin: 12px 0 0;
+  color: #b42318;
+  font-size: .9rem;
+}
+
+.receipt-upload-modal--classic .receipt-upload-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.receipt-upload-modal--classic .receipt-upload-actions button { min-height: 50px; }
+.receipt-upload-modal--classic button:disabled { cursor: not-allowed; opacity: .65; }
+
+.receipt-upload-footnote {
+  margin: 14px 0 0;
+  color: #81747c;
+  font-size: .78rem;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .receipt-upload-overlay--classic { padding: 12px; }
+  .receipt-upload-modal--classic { padding: 28px 20px 22px; border-radius: 22px; }
+  .receipt-bank-details { padding-right: 13px; padding-left: 13px; }
+  .receipt-bank-details > div { grid-template-columns: 1fr; gap: 4px; }
+}
