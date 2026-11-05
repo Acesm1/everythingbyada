@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from './lib/supabase';
+import './bank-transfer-receipt.css';
 
 const STAGED_RECEIPT_KEY = 'everythingbyada_staged_transfer_receipt';
 const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
+const bankDetails = {
+  bankName: import.meta.env.VITE_BANK_TRANSFER_BANK_NAME || 'Opay',
+  accountName: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NAME || 'Kenneth Blessing Amarachi',
+  accountNumber: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NUMBER || '9013494845',
+};
 
 function BankTransferReceiptGate() {
   const [dialog, setDialog] = useState(null);
@@ -125,25 +131,37 @@ function BankTransferReceiptGate() {
 
   if (!dialog) return null;
 
+  const amount = formRef.current?.querySelector('.cart-page-total strong')?.textContent || '';
+
   return createPortal(
-    <div className="receipt-upload-overlay" role="dialog" aria-modal="true" aria-labelledby="receipt-upload-title" onClick={(event) => {
-      if (event.target === event.currentTarget) setDialog(null);
+    <div className="receipt-upload-overlay receipt-upload-overlay--classic" role="dialog" aria-modal="true" aria-labelledby="receipt-upload-title" onClick={(event) => {
+      if (event.target === event.currentTarget && !busy) setDialog(null);
     }}>
-      <section className="receipt-upload-modal" role="document">
+      <section className="receipt-upload-modal receipt-upload-modal--classic" role="document">
         <button type="button" className="receipt-upload-close" onClick={() => setDialog(null)} aria-label="Close receipt upload" disabled={busy}>×</button>
-        <span className="receipt-upload-step">Bank transfer · final step</span>
-        <h2 id="receipt-upload-title">Confirm your payment</h2>
-        <p>Before completing your order, make payment and send your transaction receipt. Upload the receipt, then click Next to proceed.</p>
-        <label className="receipt-upload-picker">
-          <span>{file ? file.name : 'Choose receipt image (max 5 MB)'}</span>
+        <span className="receipt-upload-step">Bank transfer · secure checkout</span>
+        <h2 id="receipt-upload-title">Confirm your transfer</h2>
+        <p className="receipt-upload-intro">Make your transfer using the account details below, then upload your payment receipt to complete your order.</p>
+        <div className="receipt-transfer-summary">
+          <span>Amount to transfer</span>
+          <strong>{amount}</strong>
+        </div>
+        <dl className="receipt-bank-details">
+          <div><dt>Bank</dt><dd>{bankDetails.bankName}</dd></div>
+          <div><dt>Account name</dt><dd>{bankDetails.accountName}</dd></div>
+          <div><dt>Account number</dt><dd>{bankDetails.accountNumber}</dd></div>
+        </dl>
+        <label className="receipt-upload-picker receipt-upload-picker--classic">
+          <span>{file ? file.name : 'Choose payment receipt image (max 5 MB)'}</span>
           <input type="file" accept="image/*" disabled={busy} onChange={(event) => setFile(event.target.files?.[0] || null)} />
         </label>
         {file && <img className="receipt-upload-preview" src={URL.createObjectURL(file)} alt="Selected payment receipt preview" />}
         {error && <p className="receipt-upload-error" role="alert">{error}</p>}
         <div className="receipt-upload-actions">
           <button type="button" className="secondary-btn" onClick={() => setDialog(null)} disabled={busy}>Back</button>
-          <button type="button" className="primary-btn" onClick={continueCheckout} disabled={busy}>{busy ? 'Uploading receipt…' : 'Next'}</button>
+          <button type="button" className="primary-btn" onClick={continueCheckout} disabled={busy}>{busy ? 'Uploading receipt…' : 'Continue'}</button>
         </div>
+        <p className="receipt-upload-footnote">Your receipt is uploaded securely and linked to your order.</p>
       </section>
     </div>,
     document.body,
