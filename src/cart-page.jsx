@@ -93,7 +93,7 @@ function CartPage() {
         setPendingOrderId(orderId);
         setShowBankTransferPopup(false);
         setShowWhatsAppPopup(true);
-        setOrderMessage(`Your order ${orderId} has been placed. Transfer the exact total using the bank details above and use your order ID as the payment reference. The store will confirm your transfer.`);
+        setOrderMessage(`Your order ${orderId} has been placed. Transfer the exact total using the bank details above and use your order ID as the payment reference. The store will confirm your transfer once it is received.`);
         return;
       }
 
@@ -184,7 +184,7 @@ function CartPage() {
             {!cart.length && <div className="cart-empty-state"><p>Your cart is empty.</p><a className="primary-btn" href="/">Browse products</a></div>}
             {cart.map((item, index) => <article className="cart-page-item" key={item.id}>
               <img src={item.image || '/brand-mark.svg'} alt="" />
-              <div className="cart-page-item-info"><strong>{item.name}</strong><span>{formatPrice(item.price)} each</span><div className="cart-page-quantity"><button type="button" onClick={() => changeQuantity(index, -1)} aria-label={`Decrease quantity for ${item.name}`}>−</button><span>{item.qty}</span><button type="button" onClick={() => changeQuantity(index, 1)} aria-label={`Increase quantity for ${item.name}`}>+</button></div></div>
+              <div className="cart-page-item-info"><strong>{item.name}</strong><span>{formatPrice(item.price)} each</span><div className="cart-page-quantity"><button type="button" onClick={() => changeQuantity(index, -1)} aria-label={`Reduce ${item.name}`}>−</button><span>{item.qty}</span><button type="button" onClick={() => changeQuantity(index, 1)} aria-label={`Increase ${item.name}`}>+</button></div></div>
               <strong className="cart-page-line-total">{formatPrice(Number(item.price || 0) * Number(item.qty || 0))}</strong>
             </article>)}
           </section>
@@ -195,15 +195,15 @@ function CartPage() {
             {field('Street address', 'address', 'text', 'shipping address-line1')}
             <div className="cart-page-field-row">{field('City', 'city', 'text', 'shipping address-level2')}{field('State', 'state', 'text', 'shipping address-level1')}</div>
             {field('Postal code', 'postal_code', 'text', 'shipping postal-code', false)}
-            <label className="cart-checkout-field">Delivery instructions <span className="optional-label">(optional)</span><textarea name="notes" rows="3" maxLength="500" value={delivery.notes} onChange={(event) => setDelivery((current) => ({ ...current, notes: event.target.value }))} style={{ ...fieldStyle, minHeight: 92, resize: 'vertical' }} /></label>
+            <label className="cart-checkout-field">Delivery instructions <span className="optional-label">(optional)</span><textarea name="notes" rows="3" maxLength="500" value={delivery.notes} onChange={(event) => setDelivery((current) => ({ ...current, notes: event.target.value }))} style={{ ...fieldStyle, resize: 'vertical' }} /></label>
             <fieldset className="cart-payment-options">
               <legend>Choose payment method</legend>
-              <label className="cart-payment-option"><input type="radio" name="payment_method" value="paystack" checked={paymentMethod === 'paystack'} onChange={() => { setPaymentMethod('paystack'); setShowBankTransferPopup(false); }} />Pay online with Paystack</label>
-              <label className="cart-payment-option"><input type="radio" name="payment_method" value="bank_transfer" checked={paymentMethod === 'bank_transfer'} onChange={() => { setPaymentMethod('bank_transfer'); openBankTransferPopup(); }} />Pay via bank transfer</label>
+              <label className="cart-payment-option"><input type="radio" name="payment_method" value="paystack" checked={paymentMethod === 'paystack'} onChange={() => { setPaymentMethod('paystack'); setMessage(''); }} /> Paystack</label>
+              <label className="cart-payment-option"><input type="radio" name="payment_method" value="bank_transfer" checked={paymentMethod === 'bank_transfer'} onChange={() => { setPaymentMethod('bank_transfer'); setMessage(''); }} /> Bank transfer</label>
             </fieldset>
             {paymentMethod === 'bank_transfer' && <section className="bank-transfer-details" aria-live="polite">
               <h3>Company bank details</h3>
-              {hasBankDetails ? <dl><div><dt>Bank</dt><dd>{bankDetails.bankName}</dd></div><div><dt>Account name</dt><dd>{bankDetails.accountName}</dd></div><div><dt>Account number</dt><dd>{bankDetails.accountNumber}</dd></div></dl> : <p>Bank transfer is not available yet. Please contact the store.</p>}
+              {hasBankDetails ? <dl><div><dt>Bank</dt><dd>{bankDetails.bankName}</dd></div><div><dt>Account name</dt><dd>{bankDetails.accountName}</dd></div><div><dt>Account number</dt><dd>{bankDetails.accountNumber}</dd></div></dl> : <p>Bank transfer is unavailable right now. Please contact the store.</p>}
               {hasBankDetails && <p>After placing your order, transfer <strong>{formatPrice(total)}</strong>. Use the order ID shown above as the payment reference. Your order remains awaiting confirmation until the transfer is verified.</p>}
             </section>}
             <div className="cart-page-total"><span>Order total</span><strong>{formatPrice(total)}</strong></div>
@@ -286,10 +286,14 @@ if (root) {
   root.addEventListener('click', handleCartNavigation, true);
   const update = () => {
     syncCartPage();
-    if (window.location.pathname !== '/cart') {
-      makeRecommendations();
-      enhanceFooter();
+    const isHome = window.location.pathname === '/';
+    const recommendationSection = document.querySelector('.you-may-like');
+    if (!isHome) {
+      recommendationSection?.remove();
+      return;
     }
+    makeRecommendations();
+    enhanceFooter();
   };
   const observer = new MutationObserver(update);
   observer.observe(root, { childList: true, subtree: true });
