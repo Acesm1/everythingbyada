@@ -116,10 +116,8 @@ export default function SpecialCategoryImages() {
       setCategories(data || []);
     };
     loadCategories();
-    const timer = window.setInterval(loadCategories, 5000);
     return () => {
       alive = false;
-      window.clearInterval(timer);
     };
   }, []);
 

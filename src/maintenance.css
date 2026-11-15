@@ -1,0 +1,55 @@
+.store-status-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 168, 213, 0.3), transparent 30%),
+    #fffafc;
+}
+
+.store-status-card {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  width: min(100%, 560px);
+  padding: clamp(28px, 7vw, 56px);
+  border: 2px solid rgba(255, 43, 140, 0.2);
+  border-radius: 30px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.store-status-logo {
+  width: min(280px, 72vw);
+  height: auto;
+  margin-bottom: 8px;
+}
+
+.store-status-label {
+  color: var(--green);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.store-status-card h1 {
+  margin: 0;
+  font-family: 'Baloo 2', cursive;
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+  line-height: 1.05;
+}
+
+.store-status-card p {
+  max-width: 420px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.store-status-card .primary-btn {
+  margin-top: 8px;
+}

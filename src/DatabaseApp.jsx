@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import './storefront.css';
 import './special-category-mobile.css';
+import './maintenance.css';
 
 const CART_KEY = 'everythingbyada_cart';
 const emptyProduct = { name: '', category: '', price: '', old_price: '', stock: '', feature: '', description: '', best_seller: false };
@@ -30,6 +31,7 @@ export default function DatabaseApp() {
   const [login, setLogin] = useState({ email: '', password: '' });
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [catalogStatus, setCatalogStatus] = useState(isSupabaseConfigured ? 'loading' : 'unavailable');
 
   const cartCount = cart.reduce((total, item) => total + item.qty, 0);
   const subtotal = cart.reduce((total, item) => total + item.price * item.qty, 0);
@@ -58,6 +60,17 @@ export default function DatabaseApp() {
     setCategories(categoryRows || []);
   };
 
+  const retryCatalog = async () => {
+    setCatalogStatus('loading');
+    try {
+      await loadCatalog();
+      setCatalogStatus('ready');
+    } catch (error) {
+      console.error('Could not reload catalog:', error);
+      setCatalogStatus('unavailable');
+    }
+  };
+
   useEffect(() => {
     const sync = () => setView(routeFromPath());
     window.addEventListener('popstate', sync);
@@ -70,7 +83,14 @@ export default function DatabaseApp() {
     if (!supabase) return undefined;
     let alive = true;
     supabase.auth.getSession().then(({ data }) => { if (alive) setUser(data.session?.user || null); });
-    loadCatalog().catch((error) => { if (alive) setMessage(`Could not load catalog: ${error.message}`); });
+    loadCatalog()
+      .then(() => { if (alive) setCatalogStatus('ready'); })
+      .catch((error) => {
+        if (alive) {
+          console.error('Could not load catalog:', error);
+          setCatalogStatus('unavailable');
+        }
+      });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { if (alive) setUser(session?.user || null); });
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, []);
@@ -207,7 +227,19 @@ export default function DatabaseApp() {
 
   const logout = async () => { await supabase.auth.signOut(); setIsAdmin(false); navigate('/'); };
 
-  if (!isSupabaseConfigured) return <main className="account-page-shell"><section className="account-card"><h2>Supabase setup needed</h2><p>Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.</p></section></main>;
+  if (catalogStatus !== 'ready') return <main className="store-status-page" aria-live="polite" aria-busy={catalogStatus === 'loading'}>
+    <section className="store-status-card">
+      <img className="store-status-logo" src="/brand-mark.svg" alt="Everything by Ada" />
+      <span className="store-status-label">{catalogStatus === 'loading' ? 'Getting things ready' : 'Store update'}</span>
+      <h1>{catalogStatus === 'loading' ? 'Loading our store…' : 'We’ll be back soon.'}</h1>
+      <p>{catalogStatus === 'loading'
+        ? 'Please wait while we get the shop ready.'
+        : 'Our shop is temporarily under maintenance. Please check back soon.'}</p>
+      {catalogStatus === 'unavailable' && isSupabaseConfigured && (
+        <button type="button" className="primary-btn" onClick={retryCatalog}>Try again</button>
+      )}
+    </section>
+  </main>;
 
   return <div className="app-shell">
     <header className="topbar"><button className="brand-block brand-button" onClick={() => navigate('/')} aria-label="Everything by Ada home"><img className="brand-logo" src="/brand-mark.svg" alt="Everything by Ada — Look Good, Feel Good, Be You" /></button>
