@@ -1,0 +1,106 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start local storefront for QA",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"dev",
+				"--",
+				"--host",
+				"127.0.0.1"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build storefront QA",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect repair status",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"git",
+				"status",
+				"--short",
+				"--branch"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect broken component diff",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"git",
+				"diff",
+				"--numstat",
+				"--",
+				"src/DatabaseApp.jsx"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect committed component",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"const cp=require('child_process');const s=cp.execFileSync('git',['show','HEAD:src/DatabaseApp.jsx'],{encoding:'utf8'});console.log(JSON.stringify({bytes:Buffer.byteLength(s),lines:s.split(/\\r?\\n/).length,maintenance:s.includes('store-status-page'),retry:s.includes('retryCatalog'),descriptionToggle:s.includes('product-description-toggle')}));"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect committed component safe",
+			"type": "shell",
+			"command": "node.exe",
+			"args": [
+				"-e",
+				"const cp=require(\"child_process\");const s=cp.execFileSync(\"git\",[\"show\",\"HEAD:src/DatabaseApp.jsx\"],{encoding:\"utf8\"});console.log(JSON.stringify({bytes:Buffer.byteLength(s),lines:s.split(\"\\n\").length,maintenance:s.includes(\"store-status-page\"),retry:s.includes(\"retryCatalog\"),descriptionToggle:s.includes(\"product-description-toggle\")}));"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Restore app component from HEAD",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"restore",
+				"--source=HEAD",
+				"--worktree",
+				"--",
+				"src/DatabaseApp.jsx"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify storefront build",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

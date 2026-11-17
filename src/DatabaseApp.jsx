@@ -11,6 +11,44 @@ const routeFromPath = () => window.location.pathname.startsWith('/admin') ? 'adm
 const readCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { return []; } };
 const fromRow = (row) => ({ ...row, price: Number(row.price || 0), oldPrice: Number(row.old_price ?? row.price ?? 0), stock: Number(row.stock || 0), best_seller: Boolean(row.best_seller) });
 
+function ProductImage({ src, alt, className, loading = 'lazy' }) {
+  const [failed, setFailed] = useState(false);
+  const imageSrc = !src || failed ? '/brand-mark.svg' : src;
+  useEffect(() => setFailed(false), [src]);
+
+  return (
+    <img
+      className={className}
+      src={imageSrc}
+      alt={alt}
+      loading={loading}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function ProductDescription({ text }) {
+  const [expanded, setExpanded] = useState(false);
+  if (text.length <= 160) return <p>{text}</p>;
+
+  return (
+    <>
+      <p className={`product-card-description ${expanded ? 'is-expanded' : ''}`}>{text}</p>
+      <button
+        type="button"
+        className="product-description-toggle"
+        aria-expanded={expanded}
+        onClick={(event) => {
+          event.stopPropagation();
+          setExpanded((current) => !current);
+        }}
+      >
+        {expanded ? 'Show less' : 'Read more'}
+      </button>
+    </>
+  );
+}
+
 export default function DatabaseApp() {
   const [view, setView] = useState(routeFromPath);
   const [user, setUser] = useState(null);
@@ -39,8 +77,15 @@ export default function DatabaseApp() {
   const featured = bestSellers.length ? bestSellers[featuredIndex % bestSellers.length] : null;
   const specialCategories = categories.filter((category) => category.is_special);
   const visibleProducts = useMemo(() => products.filter((item) =>
-    (selectedCategory === 'All' || item.category === selectedCategory) &&
+    (selectedCategory === 'All' || item.category?.trim().toLowerCase() === selectedCategory.trim().toLowerCase()) &&
     `${item.name} ${item.feature || ''}`.toLowerCase().includes(search.trim().toLowerCase())), [products, selectedCategory, search]);
+  const selectSpecialCategory = (categoryName) => {
+    setSelectedCategory(categoryName);
+    setSearch('');
+    window.requestAnimationFrame(() => {
+      document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   const loadCatalog = async () => {
     if (!supabase) return;
@@ -247,7 +292,227 @@ export default function DatabaseApp() {
       <div className="header-actions"><button className="cart-btn" onClick={() => document.getElementById('cart')?.scrollIntoView({ behavior: 'smooth' })}>Cart <strong>{cartCount}</strong></button></div>
     </header>
     {message && <div className="auth-error" role="status">{message}</div>}
-    {view === 'admin' ? (!isAdmin ? <main className="admin-login-shell"><section className="admin-login-card"><span className="mini-label">Restricted area</span><h2>Admin dashboard login</h2><form className="admin-login-form" onSubmit={signIn}><label>Email<input type="email" required value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} /></label><label>Password<input type="password" required value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} /></label><button className="primary-admin-btn" disabled={busy}>Sign in</button></form></section></main> : <main className="admin-dashboard-shell"><header className="admin-topbar"><div><span className="admin-badge">Supabase admin</span><h1>Marketplace dashboard</h1></div><div className="admin-topbar-actions"><button className="ghost-admin-btn" onClick={() => navigate('/')}>View storefront</button><button className="danger-admin-btn" onClick={logout}>Log out</button></div></header><section className="admin-grid"><div className="admin-panel-card"><div className="panel-header-row"><h2>{editingId ? 'Edit product' : 'Add product'}</h2></div><form className="product-form" onSubmit={saveProduct}><label>Product name<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Category<input required list="category-options" value={form.category} onChange={(e) => { setForm({ ...form, category: e.target.value }); setCategorySpecial(Boolean(categories.find((item) => item.name === e.target.value)?.is_special)); }} /></label><datalist id="category-options">{categories.map((category) => <option key={category.name} value={category.name} />)}</datalist><div className="two-col-inputs"><label>Price<input type="number" min="0" required value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label><label>Old price<input type="number" min="0" value={form.old_price} onChange={(e) => setForm({ ...form, old_price: e.target.value })} /></label></div><label>Stock<input type="number" min="0" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} /></label><label className="upload-field">Product photo<input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /><small>{imageFile?.name || (form.image ? 'Current photo will be kept unless you choose another.' : 'Upload an image from your device (max 5 MB).')}</small></label>{imageFile && <img className="upload-preview" src={URL.createObjectURL(imageFile)} alt="Selected product preview" />}<label>Feature / highlight<input value={form.feature} onChange={(e) => setForm({ ...form, feature: e.target.value })} /></label><label>Description<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label><label className="toggle-row"><input type="checkbox" checked={form.best_seller} onChange={(e) => setForm({ ...form, best_seller: e.target.checked })} /><span>Feature as a Best Seller</span></label><label className="toggle-row"><input type="checkbox" checked={categorySpecial} onChange={(e) => setCategorySpecial(e.target.checked)} /><span>Show this category as a special category</span></label><div className="product-form-actions"><button className="primary-admin-btn" disabled={busy}>{editingId ? 'Update product' : 'Save product'}</button>{editingId && <button type="button" className="secondary-admin-btn" onClick={() => { setEditingId(null); setForm(emptyProduct); setImageFile(null); setCategorySpecial(false); }}>Cancel</button>}</div></form></div><section className="admin-panel-card inventory-panel"><div className="panel-header-row"><h2>Inventory ({products.length})</h2></div><div className="order-list">{products.map((product) => <article className="order-row" key={product.id}><img className="admin-product-thumb" src={product.image || '/brand-mark.svg'} alt="" /><div><strong>{product.name}</strong><p>{product.category}</p></div><span>{formatPrice(product.price)}</span><div className="row-actions"><button className="row-edit-btn" onClick={() => editProduct(product)}>Edit</button><button className="row-delete-btn" onClick={() => deleteProduct(product.id)}>Remove</button></div></article>)}</div></section></section><section className="admin-panel-card" style={{ marginTop: 20 }}><div className="panel-header-row"><h2>Orders</h2></div>{ordersLoading ? <p>Loading orders…</p> : orders.length === 0 ? <p>No orders yet.</p> : <div className="order-list">{orders.map((order) => <article className="order-row" key={order.id} style={{ display: 'block' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}><strong>Order {order.id}</strong><span>{order.status}</span></div><p>{new Date(order.created_at).toLocaleString()} · {formatPrice(order.total)}</p><p>{order.customer_name || order.customer_email || 'Customer'} · {order.customer_email || 'No email'}</p>{order.delivery_address && <p>{[order.delivery_address, order.delivery_city, order.delivery_state, order.delivery_postal_code].filter(Boolean).join(', ')}</p>}<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}><button className="primary-admin-btn" onClick={() => updateOrderStatus(order.id, 'Accepted')} disabled={busy || order.status === 'Accepted'}>Accept</button><button className="secondary-admin-btn" onClick={() => updateOrderStatus(order.id, 'Declined')} disabled={busy || order.status === 'Declined'}>Decline</button></div></article>)}</div>}</section></main>) : view === 'account' ? <main className="account-page-shell"><section className="account-card"><span className="mini-label">Your account</span><h2>{user ? 'Signed in' : 'Sign in to your account'}</h2>{user ? <><p>{user.email}</p><button className="secondary-btn" onClick={logout}>Sign out</button></> : <form className="admin-login-form" onSubmit={signIn}><label>Email<input type="email" required value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} /></label><label>Password<input type="password" required value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} /></label><button className="primary-btn" disabled={busy}>Sign in</button></form>}</section></main> : <main className="storefront-shell"><section className="hero"><div className="hero-copy"><div className="badge">Premium wellness & beauty</div><h1>Look good.<br /><span>Feel good.</span><br />Be you.</h1><p>Discover products designed to support your wellness and body goals.</p><div className="cta-row"><button className="primary-btn" onClick={() => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' })}>Shop now</button><button className="secondary-btn" onClick={() => setSelectedCategory('All')}>Explore products</button></div><div className="stat-row"><div><strong>{products.length}</strong><span>Curated products</span></div><div><strong>Quality</strong><span>Beauty & wellness</span></div><div><strong>Daily</strong><span>Feel your best</span></div></div></div>{featured ? <section className="featured-seller" aria-label="Best seller spotlight"><button className="featured-click" onClick={() => setSelectedProduct(featured)} aria-label={`View ${featured.name}`}><img src={featured.image || '/brand-mark.svg'} alt={featured.name} /><span className="best-seller-pill">Best Seller</span><span className="featured-caption"><small>{featured.category}</small><strong>{featured.name}</strong><span>{formatPrice(featured.price)}</span></span></button></section> : <div className="hero-logo-card"><img src="/brand-mark.svg" alt="Everything by Ada" /></div>}</section>{specialCategories.length > 0 && <section className="special-category-section"><div className="section-heading"><div><span className="mini-label">Explore by interest</span><h3>Special categories</h3></div></div><div className="special-category-grid">{specialCategories.map((category) => <button key={category.name} className="special-category-card" onClick={() => setSelectedCategory(category.name)}><span className="category-icon" aria-hidden="true">✦</span><strong>{category.name}</strong><span>Shop collection</span></button>)}</div></section>}<section className="marketplace" id="shop"><div className="section-heading"><div><span className="mini-label">Top picks</span><h3>Marketplace products</h3></div><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products" /></div><div className="filter-row"><button className={selectedCategory === 'All' ? 'filter-chip active' : 'filter-chip'} onClick={() => setSelectedCategory('All')}>All</button>{categories.map((category) => <button key={category.name} className={selectedCategory === category.name ? 'filter-chip active' : 'filter-chip'} onClick={() => setSelectedCategory(category.name)}>{category.name}</button>)}</div><div className="shop-layout"><div className="product-grid">{visibleProducts.map((product) => <article className="product-card clickable-product" key={product.id} role="button" tabIndex="0" onClick={() => setSelectedProduct(product)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedProduct(product); } }}><div className="product-image-wrap"><img src={product.image || '/brand-mark.svg'} alt={product.name} />{product.best_seller && <span className="sale-tag">Best Seller</span>}</div><div className="product-info"><div className="meta-row"><span>{product.category}</span><span>{product.feature || ''}</span></div><h4>{product.name}</h4>{product.description && <p>{product.description}</p>}<div className="price-row"><strong>{formatPrice(product.price)}</strong>{product.oldPrice > product.price && <span>{formatPrice(product.oldPrice)}</span>}</div><button className="add-btn" onClick={(event) => { event.stopPropagation(); changeCart(product, 1); }}>Add to cart</button></div></article>)}</div><aside className="cart-panel" id="cart"><div className="section-heading compact"><h3>Cart ({cartCount})</h3></div>{cart.length ? cart.map((item) => <div className="cart-item" key={item.id}><strong>{item.name}</strong><div className="cart-controls"><button onClick={() => changeCart(item, -1)}>−</button><span>{item.qty}</span><button onClick={() => changeCart(item, 1)}>+</button></div><strong>{formatPrice(item.price * item.qty)}</strong></div>) : <p className="empty-cart">Your cart is waiting for something lovely.</p>}<div className="checkout-box"><div className="checkout-row total"><span>Total</span><strong>{formatPrice(subtotal)}</strong></div><button className="primary-btn full-width" onClick={placeOrder} disabled={busy || !cart.length}>Place order</button><small>Payment is not processed on this site.</small></div></aside></div></section></main>}{selectedProduct && <div className="product-modal-backdrop" role="presentation" onClick={() => setSelectedProduct(null)}><section className="product-detail-modal" role="dialog" aria-modal="true" aria-label={selectedProduct.name} onClick={(event) => event.stopPropagation()}><button className="product-modal-close" onClick={() => setSelectedProduct(null)} aria-label="Close product details">✕</button><img src={selectedProduct.image || '/brand-mark.svg'} alt={selectedProduct.name} /><div className="product-detail-copy"><span className="mini-label">{selectedProduct.category}</span><h2>{selectedProduct.name}</h2><p>{selectedProduct.description || selectedProduct.feature || 'No description available.'}</p><div className="price-row"><strong>{formatPrice(selectedProduct.price)}</strong>{selectedProduct.oldPrice > selectedProduct.price && <span>{formatPrice(selectedProduct.oldPrice)}</span>}</div><button className="primary-btn" onClick={() => { changeCart(selectedProduct, 1); setSelectedProduct(null); }}>Add to cart</button></div></section></div>}
+    {view === 'admin' ? (
+      !isAdmin ? (
+        <main className="admin-login-shell">
+          <section className="admin-login-card">
+            <span className="mini-label">Restricted area</span>
+            <h2>Admin dashboard login</h2>
+            <form className="admin-login-form" onSubmit={signIn}>
+              <label>Email<input type="email" required value={login.email} onChange={(event) => setLogin({ ...login, email: event.target.value })} /></label>
+              <label>Password<input type="password" required value={login.password} onChange={(event) => setLogin({ ...login, password: event.target.value })} /></label>
+              <button className="primary-admin-btn" disabled={busy}>Sign in</button>
+            </form>
+          </section>
+        </main>
+      ) : (
+        <main className="admin-dashboard-shell">
+          <header className="admin-topbar">
+            <div><span className="admin-badge">Supabase admin</span><h1>Marketplace dashboard</h1></div>
+            <div className="admin-topbar-actions">
+              <button className="ghost-admin-btn" onClick={() => navigate('/')}>View storefront</button>
+              <button className="danger-admin-btn" onClick={logout}>Log out</button>
+            </div>
+          </header>
+          <section className="admin-grid">
+            <div className="admin-panel-card">
+              <div className="panel-header-row"><h2>{editingId ? 'Edit product' : 'Add product'}</h2></div>
+              <form className="product-form" onSubmit={saveProduct}>
+                <label>Product name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
+                <label>Category<input required list="category-options" value={form.category} onChange={(event) => {
+                  setForm({ ...form, category: event.target.value });
+                  setCategorySpecial(Boolean(categories.find((item) => item.name === event.target.value)?.is_special));
+                }} /></label>
+                <datalist id="category-options">{categories.map((category) => <option key={category.name} value={category.name} />)}</datalist>
+                <div className="two-col-inputs">
+                  <label>Price<input type="number" min="0" required value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label>
+                  <label>Old price<input type="number" min="0" value={form.old_price} onChange={(event) => setForm({ ...form, old_price: event.target.value })} /></label>
+                </div>
+                <label>Stock<input type="number" min="0" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label>
+                <label className="upload-field">Product photo
+                  <input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] || null)} />
+                  <small>{imageFile?.name || (form.image ? 'Current photo will be kept unless you choose another.' : 'Upload an image from your device (max 5 MB).')}</small>
+                </label>
+                {imageFile && <img className="upload-preview" src={URL.createObjectURL(imageFile)} alt="Selected product preview" />}
+                <label>Feature / highlight<input value={form.feature} onChange={(event) => setForm({ ...form, feature: event.target.value })} /></label>
+                <label>Description<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
+                <label className="toggle-row"><input type="checkbox" checked={form.best_seller} onChange={(event) => setForm({ ...form, best_seller: event.target.checked })} /><span>Feature as a Best Seller</span></label>
+                <label className="toggle-row"><input type="checkbox" checked={categorySpecial} onChange={(event) => setCategorySpecial(event.target.checked)} /><span>Show this category as a special category</span></label>
+                <div className="product-form-actions">
+                  <button className="primary-admin-btn" disabled={busy}>{editingId ? 'Update product' : 'Save product'}</button>
+                  {editingId && <button type="button" className="secondary-admin-btn" onClick={() => {
+                    setEditingId(null);
+                    setForm(emptyProduct);
+                    setImageFile(null);
+                    setCategorySpecial(false);
+                  }}>Cancel</button>}
+                </div>
+              </form>
+            </div>
+            <section className="admin-panel-card inventory-panel">
+              <div className="panel-header-row"><h2>Inventory ({products.length})</h2></div>
+              <div className="order-list">{products.map((product) => (
+                <article className="order-row" key={product.id}>
+                  <ProductImage className="admin-product-thumb" src={product.image} alt="" />
+                  <div><strong>{product.name}</strong><p>{product.category}</p></div>
+                  <span>{formatPrice(product.price)}</span>
+                  <div className="row-actions">
+                    <button className="row-edit-btn" onClick={() => editProduct(product)}>Edit</button>
+                    <button className="row-delete-btn" onClick={() => deleteProduct(product.id)}>Remove</button>
+                  </div>
+                </article>
+              ))}</div>
+            </section>
+          </section>
+          <section className="admin-panel-card" style={{ marginTop: 20 }}>
+            <div className="panel-header-row"><h2>Orders</h2></div>
+            {ordersLoading ? <p>Loading orders…</p> : orders.length === 0 ? <p>No orders yet.</p> : (
+              <div className="order-list">{orders.map((order) => (
+                <article className="order-row" key={order.id} style={{ display: 'block' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <strong>Order {order.id}</strong><span>{order.status}</span>
+                  </div>
+                  <p>{new Date(order.created_at).toLocaleString()} · {formatPrice(order.total)}</p>
+                  <p>{order.customer_name || order.customer_email || 'Customer'} · {order.customer_email || 'No email'}</p>
+                  {order.delivery_address && <p>{[order.delivery_address, order.delivery_city, order.delivery_state, order.delivery_postal_code].filter(Boolean).join(', ')}</p>}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <button className="primary-admin-btn" onClick={() => updateOrderStatus(order.id, 'Accepted')} disabled={busy || order.status === 'Accepted'}>Accept</button>
+                    <button className="secondary-admin-btn" onClick={() => updateOrderStatus(order.id, 'Declined')} disabled={busy || order.status === 'Declined'}>Decline</button>
+                  </div>
+                </article>
+              ))}</div>
+            )}
+          </section>
+        </main>
+      )
+    ) : view === 'account' ? (
+      <main className="account-page-shell">
+        <section className="account-card">
+          <span className="mini-label">Your account</span>
+          <h2>{user ? 'Signed in' : 'Sign in to your account'}</h2>
+          {user ? <><p>{user.email}</p><button className="secondary-btn" onClick={logout}>Sign out</button></> : (
+            <form className="admin-login-form" onSubmit={signIn}>
+              <label>Email<input type="email" required value={login.email} onChange={(event) => setLogin({ ...login, email: event.target.value })} /></label>
+              <label>Password<input type="password" required value={login.password} onChange={(event) => setLogin({ ...login, password: event.target.value })} /></label>
+              <button className="primary-btn" disabled={busy}>Sign in</button>
+            </form>
+          )}
+        </section>
+      </main>
+    ) : (
+      <main className="storefront-shell">
+        <section className="hero">
+          <div className="hero-copy">
+            <div className="badge">Premium wellness & beauty</div>
+            <h1>Look good.<br /><span>Feel good.</span><br />Be you.</h1>
+            <p>Discover products designed to support your wellness and body goals.</p>
+            <div className="cta-row">
+              <button className="primary-btn" onClick={() => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' })}>Shop now</button>
+              <button className="secondary-btn" onClick={() => setSelectedCategory('All')}>Explore products</button>
+            </div>
+            <div className="stat-row">
+              <div><strong>{products.length}</strong><span>Curated products</span></div>
+              <div><strong>Quality</strong><span>Beauty & wellness</span></div>
+              <div><strong>Daily</strong><span>Feel your best</span></div>
+            </div>
+          </div>
+          {featured ? (
+            <section className="featured-seller" aria-label="Best seller spotlight">
+              <button className="featured-click" onClick={() => setSelectedProduct(featured)} aria-label={`View ${featured.name}`}>
+                <ProductImage src={featured.image} alt={featured.name} loading="eager" />
+                <span className="best-seller-pill">Best Seller</span>
+                <span className="featured-caption"><small>{featured.category}</small><strong>{featured.name}</strong><span>{formatPrice(featured.price)}</span></span>
+              </button>
+            </section>
+          ) : <div className="hero-logo-card"><img src="/brand-mark.svg" alt="Everything by Ada" /></div>}
+        </section>
+        {specialCategories.length > 0 && (
+          <section className="special-category-section">
+            <div className="section-heading"><div><span className="mini-label">Explore by interest</span><h3>Special categories</h3></div></div>
+            <div className="special-category-grid">{specialCategories.map((category) => (
+              <button key={category.name} className="special-category-card" onClick={() => selectSpecialCategory(category.name)}>
+                <span className="category-icon" aria-hidden="true">✦</span>
+                <strong>{category.name}</strong>
+                <span>Shop collection</span>
+              </button>
+            ))}</div>
+          </section>
+        )}
+        <section className="marketplace" id="shop">
+          <div className="section-heading">
+            <div><span className="mini-label">Top picks</span><h3>Marketplace products</h3></div>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products" />
+          </div>
+          <div className="filter-row">
+            <button className={selectedCategory === 'All' ? 'filter-chip active' : 'filter-chip'} onClick={() => setSelectedCategory('All')}>All</button>
+            {categories.map((category) => (
+              <button key={category.name} className={selectedCategory === category.name ? 'filter-chip active' : 'filter-chip'} onClick={() => setSelectedCategory(category.name)}>{category.name}</button>
+            ))}
+          </div>
+          <div className="shop-layout">
+            <div className="product-grid">
+              {visibleProducts.length ? visibleProducts.map((product) => (
+                <article className="product-card clickable-product" key={product.id} onClick={(event) => {
+                  if (event.target.closest('button')) return;
+                  setSelectedProduct(product);
+                }}>
+                  <div className="product-image-wrap">
+                    <ProductImage src={product.image} alt={product.name} />
+                    {product.best_seller && <span className="sale-tag">Best Seller</span>}
+                  </div>
+                  <div className="product-info">
+                    <div className="meta-row"><span>{product.category}</span><span>{product.feature || ''}</span></div>
+                    <h4><button type="button" className="product-title-button" onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedProduct(product);
+                    }}>{product.name}</button></h4>
+                    {product.description && <ProductDescription text={product.description} />}
+                    <div className="price-row"><strong>{formatPrice(product.price)}</strong>{product.oldPrice > product.price && <span>{formatPrice(product.oldPrice)}</span>}</div>
+                    <button className="add-btn" onClick={(event) => {
+                      event.stopPropagation();
+                      changeCart(product, 1);
+                    }}>Add to cart</button>
+                  </div>
+                </article>
+              )) : <p className="empty-cart">No products match this category or search.</p>}
+            </div>
+            <aside className="cart-panel" id="cart">
+              <div className="section-heading compact"><h3>Cart ({cartCount})</h3></div>
+              {cart.length ? cart.map((item) => (
+                <div className="cart-item" key={item.id}>
+                  <strong>{item.name}</strong>
+                  <div className="cart-controls"><button onClick={() => changeCart(item, -1)}>−</button><span>{item.qty}</span><button onClick={() => changeCart(item, 1)}>+</button></div>
+                  <strong>{formatPrice(item.price * item.qty)}</strong>
+                </div>
+              )) : <p className="empty-cart">Your cart is waiting for something lovely.</p>}
+              <div className="checkout-box">
+                <div className="checkout-row total"><span>Total</span><strong>{formatPrice(subtotal)}</strong></div>
+                <button className="primary-btn full-width" onClick={placeOrder} disabled={busy || !cart.length}>Place order</button>
+                <small>Payment is not processed on this site.</small>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    )}
+    {selectedProduct && (
+      <div className="product-modal-backdrop" role="presentation" onClick={() => setSelectedProduct(null)}>
+        <section className="product-detail-modal" role="dialog" aria-modal="true" aria-label={selectedProduct.name} onClick={(event) => event.stopPropagation()}>
+          <button className="product-modal-close" onClick={() => setSelectedProduct(null)} aria-label="Close product details">✕</button>
+          <ProductImage src={selectedProduct.image} alt={selectedProduct.name} />
+          <div className="product-detail-copy">
+            <span className="mini-label">{selectedProduct.category}</span>
+            <h2>{selectedProduct.name}</h2>
+            <p>{selectedProduct.description || selectedProduct.feature || 'No description available.'}</p>
+            <div className="price-row"><strong>{formatPrice(selectedProduct.price)}</strong>{selectedProduct.oldPrice > selectedProduct.price && <span>{formatPrice(selectedProduct.oldPrice)}</span>}</div>
+            <button className="primary-btn" onClick={() => {
+              changeCart(selectedProduct, 1);
+              setSelectedProduct(null);
+            }}>Add to cart</button>
+          </div>
+        </section>
+      </div>
+    )}
     <footer className="site-footer"><div className="footer-brand-block"><img className="footer-logo" src="/brand-mark.svg" alt="Everything by Ada" /></div><div className="footer-links"><button className="footer-link" onClick={() => navigate('/')}>Shop</button><button className="footer-link" onClick={() => navigate('/account')}>Account</button>{isAdmin && <button className="footer-link" onClick={() => navigate('/admin')}>Admin</button>}</div></footer>
   </div>;
 }
