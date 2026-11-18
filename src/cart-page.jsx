@@ -251,7 +251,7 @@ function enhanceFooter() {
   if (!footer || footer.querySelector('.official-footer-details')) return;
   const details = document.createElement('div');
   details.className = 'official-footer-details';
-  details.innerHTML = '<div class="official-footer-contact"><strong>Contact us</strong><a href="tel:09068192327">09068192327</a></div><div class="official-footer-social"><strong>Follow us on TikTok</strong><a href="https://www.tiktok.com/@everythingbodiedbyada01" target="_blank" rel="noreferrer">@everythingbyada</a></div><div class="official-footer-bottom"><span>© <span></span> Everything By Ada.</span><span>Fresh beauty, delivered with care.</span></div>';
+  details.innerHTML = '<div class="official-footer-contact"><strong>Contact us</strong><a href="tel:09068192327">09068192327</a></div><div class="official-footer-social"><strong>Follow us on TikTok</strong><a href="https://www.tiktok.com/@everythingbodiedbyada01?_r=1&_t=ZS-9BVbuvYIZN6" target="_blank" rel="noreferrer">@everythingbyada</a></div><div class="official-footer-bottom"><span>© <span></span> Everything By Ada.</span><span>Fresh beauty, delivered with care.</span></div>';
   details.querySelector('.official-footer-bottom span:first-child span').textContent = new Date().getFullYear();
   footer.append(details);
   footer.classList.add('official-footer');
