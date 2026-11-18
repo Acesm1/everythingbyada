@@ -220,9 +220,15 @@ function CartPage() {
 
 function makeRecommendations() {
   const shop = document.querySelector('#shop');
+  if (!shop) return;
+
   const sourceCards = [...document.querySelectorAll('#shop .product-grid > .product-card')];
-  if (!shop || !sourceCards.length) return;
   let section = document.querySelector('.you-may-like');
+  if (!sourceCards.length) {
+    section?.remove();
+    return;
+  }
+
   if (!section) {
     section = document.createElement('section');
     section.className = 'you-may-like';
@@ -239,9 +245,24 @@ function makeRecommendations() {
     recommendation.classList.remove('clickable-product');
     recommendation.removeAttribute('role');
     recommendation.removeAttribute('tabindex');
+    const description = recommendation.querySelector('.product-card-description');
+    const descriptionToggle = recommendation.querySelector('.product-description-toggle');
+    if (description && descriptionToggle) {
+      description.classList.remove('is-expanded');
+      descriptionToggle.setAttribute('aria-expanded', 'false');
+      descriptionToggle.textContent = 'Read more';
+      descriptionToggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const expanded = description.classList.toggle('is-expanded');
+        descriptionToggle.setAttribute('aria-expanded', String(expanded));
+        descriptionToggle.textContent = expanded ? 'Show less' : 'Read more';
+      });
+    }
     const originalAdd = card.querySelector('.add-btn');
     recommendation.querySelector('.add-btn')?.addEventListener('click', (event) => { event.stopPropagation(); originalAdd?.click(); });
-    recommendation.querySelectorAll('button').forEach((button) => { if (!button.classList.contains('add-btn')) button.remove(); });
+    recommendation.querySelectorAll('button').forEach((button) => {
+      if (!button.classList.contains('add-btn') && !button.classList.contains('product-description-toggle')) button.remove();
+    });
     grid.append(recommendation);
   });
 }

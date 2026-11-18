@@ -53,6 +53,8 @@ export default function DatabaseApp() {
   const [view, setView] = useState(routeFromPath);
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [adminLoading, setAdminLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -127,7 +129,20 @@ export default function DatabaseApp() {
   useEffect(() => {
     if (!supabase) return undefined;
     let alive = true;
-    supabase.auth.getSession().then(({ data }) => { if (alive) setUser(data.session?.user || null); });
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!alive) return;
+      if (error) {
+        console.error('Could not check sign-in status:', error);
+        setMessage(`Could not check sign-in status: ${error.message}`);
+      }
+      setUser(data.session?.user || null);
+      setAuthLoading(false);
+    }).catch((error) => {
+      if (!alive) return;
+      console.error('Could not check sign-in status:', error);
+      setMessage(`Could not check sign-in status: ${error.message}`);
+      setAuthLoading(false);
+    });
     loadCatalog()
       .then(() => { if (alive) setCatalogStatus('ready'); })
       .catch((error) => {
@@ -136,14 +151,44 @@ export default function DatabaseApp() {
           setCatalogStatus('unavailable');
         }
       });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { if (alive) setUser(session?.user || null); });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!alive) return;
+      setUser(session?.user || null);
+      setAuthLoading(false);
+    });
     return () => { alive = false; listener.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
-    if (!supabase || !user) { setIsAdmin(false); return; }
+    if (!supabase || !user) {
+      setIsAdmin(false);
+      setAdminLoading(false);
+      return undefined;
+    }
+
+    let alive = true;
+    setAdminLoading(true);
     supabase.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
-      .then(({ data }) => setIsAdmin(Boolean(data)));
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) {
+          console.error('Could not verify administrator access:', error);
+          setIsAdmin(false);
+          setMessage(`Could not verify administrator access: ${error.message}`);
+        } else {
+          setIsAdmin(Boolean(data));
+        }
+        setAdminLoading(false);
+      })
+      .catch((error) => {
+        if (!alive) return;
+        console.error('Could not verify administrator access:', error);
+        setIsAdmin(false);
+        setMessage(`Could not verify administrator access: ${error.message}`);
+        setAdminLoading(false);
+      });
+
+    return () => { alive = false; };
   }, [user]);
 
   useEffect(() => {
@@ -193,9 +238,51 @@ export default function DatabaseApp() {
   });
 
   const signIn = async (event) => {
-    event.preventDefault(); setBusy(true); setMessage('');
-    const { error } = await supabase.auth.signInWithPassword({ email: login.email.trim(), password: login.password });
-    setBusy(false); if (error) setMessage(error.message); else setMessage('Signed in successfully.');
+    event.preventDefault();
+    if (!supabase) {
+      setMessage('Sign-in is temporarily unavailable. Please try again later.');
+      return;
+    }
+
+    setBusy(true);
+    setMessage('');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: login.email.trim(),
+        password: login.password,
+      });
+      if (error) throw error;
+      const signedInUser = data.user || data.session?.user;
+      if (!signedInUser) throw new Error('Sign-in completed without returning an account session.');
+      setUser(signedInUser);
+
+      if (view === 'admin') {
+        setAdminLoading(true);
+        const { data: adminRecord, error: adminError } = await supabase
+          .from('admin_users')
+          .select('user_id')
+          .eq('user_id', signedInUser.id)
+          .maybeSingle();
+        if (adminError) throw new Error(`Could not verify administrator access: ${adminError.message}`);
+
+        const hasAdminAccess = Boolean(adminRecord);
+        setIsAdmin(hasAdminAccess);
+        setAdminLoading(false);
+        if (hasAdminAccess) {
+          navigate('/admin');
+          setMessage('Signed in. Your admin dashboard is ready.');
+        } else {
+          setMessage('You are signed in, but this account does not have administrator access. Ask an existing administrator to grant access.');
+        }
+      } else {
+        setMessage('Signed in successfully.');
+      }
+    } catch (error) {
+      setAdminLoading(false);
+      setMessage(`Could not sign in: ${error.message || 'Please try again.'}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const uploadProductImage = async () => {
@@ -293,7 +380,11 @@ export default function DatabaseApp() {
     </header>
     {message && <div className="auth-error" role="status">{message}</div>}
     {view === 'admin' ? (
-      !isAdmin ? (
+      authLoading || adminLoading ? (
+        <main className="admin-login-shell" aria-live="polite" aria-busy="true">
+          <section className="admin-login-card"><p>Checking your account and administrator access…</p></section>
+        </main>
+      ) : !isAdmin ? (
         <main className="admin-login-shell">
           <section className="admin-login-card">
             <span className="mini-label">Restricted area</span>

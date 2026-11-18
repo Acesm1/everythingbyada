@@ -49,7 +49,7 @@ function SignupForm() {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: new URL('/account', window.location.origin).toString() },
       });
       if (error) throw error;
       setMessage(data.session
