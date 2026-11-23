@@ -11,6 +11,385 @@
 			],
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "Build storefront changes",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect source file integrity",
+			"type": "shell",
+			"command": "node.exe",
+			"args": [
+				"-e",
+				"const fs=require('fs'); for(const f of ['src/customer-orders.jsx','src/cart-page.jsx','src/offline-payment.jsx','src/DatabaseApp.jsx']) { const b=fs.readFileSync(f); let n=0; for(const x of b) if(x===0)n++; console.log(f, 'bytes='+b.length, 'nul='+n, 'head='+b.subarray(0,20).toString('hex')); }"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check source file bytes",
+			"type": "shell",
+			"command": "node.exe",
+			"args": [
+				"-e",
+				"const fs=require(\"fs\"); for(const f of [\"src/customer-orders.jsx\",\"src/cart-page.jsx\",\"src/offline-payment.jsx\",\"src/DatabaseApp.jsx\"]) { const b=fs.readFileSync(f); let n=0; for(const x of b) if(x===0)n++; console.log(f, \"bytes=\"+b.length, \"nul=\"+n, \"head=\"+b.subarray(0,20).toString(\"hex\")); }"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect source byte state",
+			"type": "shell",
+			"command": "node.exe",
+			"args": [
+				"inspect-source.cjs"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check working tree changes",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"status",
+				"--short",
+				"--branch"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect tracked source state",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"ls-files",
+				"-v",
+				"--",
+				"src/DatabaseApp.jsx",
+				"src/customer-orders.jsx",
+				"src/cart-page.jsx",
+				"src/offline-payment.jsx"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Compare committed source files",
+			"type": "shell",
+			"command": "node.exe",
+			"args": [
+				"inspect-source.cjs"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Read committed orders source",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"show",
+				"HEAD:src/customer-orders.jsx"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect account file history",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"log",
+				"--all",
+				"--oneline",
+				"--decorate",
+				"-20",
+				"--",
+				"src/DatabaseApp.jsx",
+				"src/customer-orders.jsx",
+				"src/cart-page.jsx",
+				"src/offline-payment.jsx"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Review recent commits",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"log",
+				"--all",
+				"--oneline",
+				"--decorate",
+				"-10"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Find intact source revision",
+			"type": "shell",
+			"command": "node.exe",
+			"args": [
+				"inspect-history.cjs"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "List available revisions",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"log",
+				"--all",
+				"--oneline",
+				"--decorate",
+				"--max-count=30"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect commit timeline",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"log",
+				"--all",
+				"--format=%h %ad %s",
+				"--date=short",
+				"--max-count=20"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Review corrupted commit files",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"show",
+				"--stat",
+				"--oneline",
+				"--no-renames",
+				"8c1ae73"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect corrupted commit summary",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"diff-tree",
+				"--no-commit-id",
+				"--name-status",
+				"-r",
+				"8c1ae73"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect repository reflog",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"reflog",
+				"--all",
+				"--date=iso",
+				"-20"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Search unreachable Git history",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"fsck",
+				"--no-reflogs",
+				"--unreachable"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Identify recoverable source commits",
+			"type": "shell",
+			"command": "node.exe",
+			"args": [
+				"inspect-unreachable.cjs"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Restore source from verified revision",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"restore",
+				"--source=d66170c",
+				"--worktree",
+				"--",
+				"src/DatabaseApp.jsx",
+				"src/account-signup.jsx",
+				"src/cart-page.jsx",
+				"src/customer-orders.jsx",
+				"src/offline-payment.jsx"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify restored baseline build",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check recovery worktree",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"status",
+				"--short",
+				"--branch"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build recovery baseline",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check build task output",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"diff",
+				"--numstat",
+				"--",
+				"src/DatabaseApp.jsx",
+				"src/account-signup.jsx",
+				"src/cart-page.jsx",
+				"src/customer-orders.jsx",
+				"src/offline-payment.jsx",
+				"src/responsive.css"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect responsive branch blob",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"show",
+				"HEAD:src/responsive.css"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Restore responsive stylesheet",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"restore",
+				"--source=d66170c",
+				"--worktree",
+				"--",
+				"src/responsive.css"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Recover responsive stylesheet",
+			"type": "shell",
+			"command": "git.exe",
+			"args": [
+				"restore",
+				"--source=d66170c",
+				"--worktree",
+				"--",
+				"src/responsive.css"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build recovered baseline",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build account improvements",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build account tabs",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Build account improvements final",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }
