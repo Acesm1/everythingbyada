@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+import CustomerReviewsPage, { AdminProductReviews } from './customer-reviews';
 import './storefront.css';
 import './special-category-mobile.css';
 import './maintenance.css';
@@ -7,20 +8,60 @@ import './maintenance.css';
 const CART_KEY = 'everythingbyada_cart';
 const CART_OWNER_KEY = 'everythingbyada_cart_owner';
 const emptyProfile = { full_name: '', phone: '', address: '', city: '' };
+const emptyStoreSettings = { store_name: '', support_phone: '', support_email: '', delivery_information: '', payment_details: '' };
 const accountTabs = ['ACCOUNT DETAILS', 'MY ORDERS', 'PENDING REVIEWS'];
 const accountTabFromUrl = () => {
   const tab = new URLSearchParams(window.location.search).get('tab')?.toUpperCase();
   return accountTabs.includes(tab) ? tab : accountTabs[0];
 };
-const emptyProduct = { name: '', category: '', price: '', old_price: '', stock: '', feature: '', description: '', best_seller: false };
+const emptyProduct = { name: '', category: '', price: '', old_price: '', stock: '', feature: '', description: '', best_seller: false, video_urls: [] };
 const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
-const routeFromPath = () => window.location.pathname.startsWith('/admin') ? 'admin' : window.location.pathname.startsWith('/account') ? 'account' : 'store';
+const routeFromPath = () => window.location.pathname.startsWith('/admin') ? 'admin' : window.location.pathname.startsWith('/account') ? 'account' : window.location.pathname.startsWith('/reviews') ? 'reviews' : 'store';
 const readCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { return []; } };
 const normalizeCart = (items) => Array.isArray(items)
   ? items.filter((item) => item && item.id != null && Number(item.qty) > 0)
     .map((item) => ({ ...item, qty: Number(item.qty), price: Number(item.price || 0) }))
   : [];
 const fromRow = (row) => ({ ...row, price: Number(row.price || 0), oldPrice: Number(row.old_price ?? row.price ?? 0), stock: Number(row.stock || 0), best_seller: Boolean(row.best_seller) });
+
+function ProductVideo({ src }) {
+  const videoRef = useRef(null);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        video.play().then(() => setAutoplayBlocked(false)).catch(() => setAutoplayBlocked(true));
+      } else {
+        video.pause();
+      }
+    }, { threshold: 0.6 });
+    observer.observe(video);
+    return () => {
+      observer.disconnect();
+      video.pause();
+    };
+  }, [src]);
+
+  return (
+    <div className="product-detail-media-item">
+      <video
+        ref={videoRef}
+        src={src}
+        muted
+        playsInline
+        loop
+        controls
+        preload="metadata"
+        aria-label="Product video"
+        onPlay={() => setAutoplayBlocked(false)}
+      />
+      {autoplayBlocked && <p className="video-autoplay-note">Tap play to view this video.</p>}
+    </div>
+  );
+}
 
 function ProductImage({ src, alt, className, loading = 'lazy' }) {
   const [failed, setFailed] = useState(false);
@@ -88,10 +129,24 @@ export default function DatabaseApp() {
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [form, setForm] = useState(emptyProduct);
   const [imageFile, setImageFile] = useState(null);
+  const [videoFiles, setVideoFiles] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [categorySpecial, setCategorySpecial] = useState(false);
+  const [adminTab, setAdminTab] = useState('dashboard');
+  const [storeSettings, setStoreSettings] = useState(emptyStoreSettings);
+  const [storeSettingsLoading, setStoreSettingsLoading] = useState(false);
+  const [storeSettingsSaving, setStoreSettingsSaving] = useState(false);
+  const [storeSettingsMessage, setStoreSettingsMessage] = useState('');
+  const [adminPassword, setAdminPassword] = useState({ password: '', confirm: '' });
+  const [adminProfileName, setAdminProfileName] = useState('');
+  const [adminSecurityMessage, setAdminSecurityMessage] = useState('');
+  const [adminSecuritySaving, setAdminSecuritySaving] = useState(false);
   const [login, setLogin] = useState({ email: '', password: '' });
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    setAdminProfileName(user?.user_metadata?.full_name || '');
+  }, [user?.id, user?.user_metadata?.full_name]);
   const [busy, setBusy] = useState(false);
   const [catalogStatus, setCatalogStatus] = useState(isSupabaseConfigured ? 'loading' : 'unavailable');
 
@@ -379,6 +434,32 @@ export default function DatabaseApp() {
   }, [user, isAdmin]);
 
   useEffect(() => {
+    if (!supabase || !user || !isAdmin || adminTab !== 'settings') return undefined;
+    let alive = true;
+    setStoreSettingsLoading(true);
+    setStoreSettingsMessage('');
+    supabase.from('store_settings').select('key,value')
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) {
+          setStoreSettingsMessage(`Could not load store settings: ${error.message}. Run the latest database setup SQL first.`);
+        } else {
+          setStoreSettings({
+            ...emptyStoreSettings,
+            ...(data || []).reduce((settings, row) => ({ ...settings, [row.key]: row.value }), {}),
+          });
+        }
+        setStoreSettingsLoading(false);
+      })
+      .catch((error) => {
+        if (!alive) return;
+        setStoreSettingsMessage(`Could not load store settings: ${error.message}`);
+        setStoreSettingsLoading(false);
+      });
+    return () => { alive = false; };
+  }, [adminTab, user?.id, isAdmin]);
+
+  useEffect(() => {
     if (bestSellers.length < 2) return undefined;
     const timer = window.setInterval(() => setFeaturedIndex((index) => (index + 1) % bestSellers.length), 5000);
     return () => window.clearInterval(timer);
@@ -442,6 +523,73 @@ export default function DatabaseApp() {
     }
   };
 
+  const saveStoreSettings = async (event) => {
+    event.preventDefault();
+    if (!supabase || !isAdmin) return;
+    const settingRows = [
+      { id: 1, key: 'store_name', value: storeSettings.store_name.trim() },
+      { id: 2, key: 'support_phone', value: storeSettings.support_phone.trim() },
+      { id: 3, key: 'support_email', value: storeSettings.support_email.trim() },
+      { id: 4, key: 'delivery_information', value: storeSettings.delivery_information.trim() },
+      { id: 5, key: 'payment_details', value: storeSettings.payment_details.trim() },
+    ].map((row) => ({ ...row, updated_at: new Date().toISOString() }));
+    setStoreSettingsSaving(true);
+    setStoreSettingsMessage('');
+    try {
+      const { error } = await supabase.from('store_settings').upsert(settingRows, { onConflict: 'key' });
+      if (error) throw error;
+      setStoreSettingsMessage('Store settings saved.');
+    } catch (error) {
+      console.error('Could not save store settings:', error);
+      setStoreSettingsMessage(`Could not save store settings: ${error.message}`);
+    } finally {
+      setStoreSettingsSaving(false);
+    }
+  };
+
+  const updateAdminProfile = async (event) => {
+    event.preventDefault();
+    if (!supabase || !isAdmin) return;
+    setAdminSecuritySaving(true);
+    setAdminSecurityMessage('');
+    try {
+      const { error } = await supabase.auth.updateUser({ data: { full_name: adminProfileName.trim() } });
+      if (error) throw error;
+      setAdminSecurityMessage('Admin profile updated.');
+    } catch (error) {
+      console.error('Could not update administrator profile:', error);
+      setAdminSecurityMessage(`Could not update admin profile: ${error.message}`);
+    } finally {
+      setAdminSecuritySaving(false);
+    }
+  };
+
+  const updateAdminPassword = async (event) => {
+    event.preventDefault();
+    setAdminSecurityMessage('');
+    if (adminPassword.password.length < 8) {
+      setAdminSecurityMessage('Use a password with at least 8 characters.');
+      return;
+    }
+    if (adminPassword.password !== adminPassword.confirm) {
+      setAdminSecurityMessage('The passwords do not match.');
+      return;
+    }
+    if (!supabase || !isAdmin) return;
+    setAdminSecuritySaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: adminPassword.password });
+      if (error) throw error;
+      setAdminPassword({ password: '', confirm: '' });
+      setAdminSecurityMessage('Admin password updated.');
+    } catch (error) {
+      console.error('Could not update administrator password:', error);
+      setAdminSecurityMessage(`Could not update password: ${error.message}`);
+    } finally {
+      setAdminSecuritySaving(false);
+    }
+  };
+
   const signIn = async (event) => {
     event.preventDefault();
     if (!supabase) {
@@ -501,6 +649,25 @@ export default function DatabaseApp() {
     return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
   };
 
+  const uploadProductVideos = async () => {
+    const uploadedUrls = [];
+    for (const file of videoFiles) {
+      if (!['video/mp4', 'video/webm', 'video/quicktime'].includes(file.type)) {
+        throw new Error('Product videos must be MP4, WebM, or MOV files.');
+      }
+      if (file.size > 50 * 1024 * 1024) throw new Error('Each product video must be 50 MB or smaller.');
+      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4';
+      const path = `products/${crypto.randomUUID()}.${extension}`;
+      const { error } = await supabase.storage.from('product-videos').upload(path, file, {
+        upsert: false,
+        contentType: file.type,
+      });
+      if (error) throw error;
+      uploadedUrls.push(supabase.storage.from('product-videos').getPublicUrl(path).data.publicUrl);
+    }
+    return uploadedUrls;
+  };
+
   const saveProduct = async (event) => {
     event.preventDefault();
     if (!supabase || !isAdmin) return;
@@ -509,7 +676,8 @@ export default function DatabaseApp() {
     setBusy(true); setMessage('');
     try {
       const image = await uploadProductImage();
-      const payload = { name: form.name.trim(), category, price: Number(form.price) || 0, old_price: Number(form.old_price) || Number(form.price) || 0, stock: Number(form.stock) || 0, image, feature: form.feature.trim(), description: form.description.trim(), best_seller: Boolean(form.best_seller) };
+      const uploadedVideos = await uploadProductVideos();
+      const payload = { name: form.name.trim(), category, price: Number(form.price) || 0, old_price: Number(form.old_price) || Number(form.price) || 0, stock: Number(form.stock) || 0, image, feature: form.feature.trim(), description: form.description.trim(), best_seller: Boolean(form.best_seller), video_urls: [...(form.video_urls || []), ...uploadedVideos] };
       const result = editingId ? await supabase.from('products').update(payload).eq('id', editingId) : await supabase.from('products').insert(payload);
       if (result.error) throw result.error;
 
@@ -521,7 +689,7 @@ export default function DatabaseApp() {
       }
       if (categorySaveError) throw categorySaveError;
 
-      setForm(emptyProduct); setImageFile(null); setEditingId(null); setCategorySpecial(false);
+      setForm(emptyProduct); setImageFile(null); setVideoFiles([]); setEditingId(null); setCategorySpecial(false);
       await loadCatalog(); setMessage('Product saved.');
     } catch (error) { setMessage(`Could not save product: ${error.message}`); }
     finally { setBusy(false); }
@@ -529,9 +697,9 @@ export default function DatabaseApp() {
 
   const editProduct = (product) => {
     setEditingId(product.id);
-    setForm({ name: product.name, category: product.category, price: product.price, old_price: product.oldPrice, stock: product.stock, image: product.image || '', feature: product.feature || '', description: product.description || '', best_seller: product.best_seller });
+    setForm({ ...emptyProduct, name: product.name, category: product.category, price: product.price, old_price: product.oldPrice, stock: product.stock, image: product.image || '', feature: product.feature || '', description: product.description || '', best_seller: product.best_seller, video_urls: Array.isArray(product.video_urls) ? product.video_urls : [] });
     setCategorySpecial(Boolean(categories.find((category) => category.name === product.category)?.is_special));
-    setImageFile(null); window.scrollTo({ top: 0, behavior: 'smooth' });
+    setImageFile(null); setVideoFiles([]); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const deleteProduct = async (id) => {
@@ -614,6 +782,7 @@ export default function DatabaseApp() {
         <button type="button" onClick={() => navigate('/')}>Home / Shop</button>
         <button type="button" onClick={() => navigate('/account')}>My account</button>
         <button type="button" onClick={() => navigate('/cart')}>Shopping cart <span>{cartReadyForUser ? cartCount : '…'}</span></button>
+        <button type="button" onClick={() => navigate('/reviews')}>Customer reviews</button>
       </nav>}
     </header>
     {message && <div className="auth-error" role="status">{message}</div>}
@@ -652,6 +821,11 @@ export default function DatabaseApp() {
               <button className="danger-admin-btn" onClick={logout}>Log out</button>
             </div>
           </header>
+          <nav className="admin-dashboard-nav" aria-label="Admin dashboard sections">
+            <button type="button" className={adminTab === 'dashboard' ? 'is-active' : ''} onClick={() => setAdminTab('dashboard')}>Dashboard</button>
+            <button type="button" className={adminTab === 'settings' ? 'is-active' : ''} onClick={() => setAdminTab('settings')}>Admin settings</button>
+          </nav>
+          {adminTab === 'dashboard' ? <>
           <section className="admin-grid">
             <div className="admin-panel-card">
               <div className="panel-header-row"><h2>{editingId ? 'Edit product' : 'Add product'}</h2></div>
@@ -672,6 +846,33 @@ export default function DatabaseApp() {
                   <small>{imageFile?.name || (form.image ? 'Current photo will be kept unless you choose another.' : 'Upload an image from your device (max 5 MB).')}</small>
                 </label>
                 {imageFile && <img className="upload-preview" src={URL.createObjectURL(imageFile)} alt="Selected product preview" />}
+                <label className="upload-field">Product videos (up to 3)
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    multiple
+                    disabled={(form.video_urls || []).length >= 3}
+                    onChange={(event) => {
+                      const files = Array.from(event.target.files || []);
+                      const available = 3 - (form.video_urls || []).length;
+                      const validFiles = files.filter((file) => ['video/mp4', 'video/webm', 'video/quicktime'].includes(file.type) && file.size <= 50 * 1024 * 1024);
+                      setVideoFiles(validFiles.slice(0, available));
+                      if (files.length > available || validFiles.length !== files.length) {
+                        setMessage('Choose up to 3 MP4, WebM, or MOV videos total; each must be 50 MB or smaller.');
+                      } else {
+                        setMessage('');
+                      }
+                    }}
+                  />
+                  <small>{(form.video_urls || []).length + videoFiles.length} of 3 videos selected. MP4, WebM, or MOV, up to 50 MB each.</small>
+                </label>
+                {(form.video_urls || []).map((videoUrl, index) => (
+                  <div className="admin-product-video-row" key={videoUrl}>
+                    <video src={videoUrl} muted playsInline controls preload="metadata" aria-label={`Current product video ${index + 1}`} />
+                    <button type="button" className="row-delete-btn" onClick={() => setForm((current) => ({ ...current, video_urls: current.video_urls.filter((_, currentIndex) => currentIndex !== index) }))}>Remove video</button>
+                  </div>
+                ))}
+                {videoFiles.map((file) => <p className="admin-selected-video" key={`${file.name}-${file.lastModified}`}>{file.name}</p>)}
                 <label>Feature / highlight<input value={form.feature} onChange={(event) => setForm({ ...form, feature: event.target.value })} /></label>
                 <label>Description<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
                 <label className="toggle-row"><input type="checkbox" checked={form.best_seller} onChange={(event) => setForm({ ...form, best_seller: event.target.checked })} /><span>Feature as a Best Seller</span></label>
@@ -682,6 +883,7 @@ export default function DatabaseApp() {
                     setEditingId(null);
                     setForm(emptyProduct);
                     setImageFile(null);
+                    setVideoFiles([]);
                     setCategorySpecial(false);
                   }}>Cancel</button>}
                 </div>
@@ -721,8 +923,45 @@ export default function DatabaseApp() {
               ))}</div>
             )}
           </section>
+          <AdminProductReviews products={products} />
+          </> : (
+            <section className="admin-settings-view">
+              <section className="admin-panel-card">
+                <div className="panel-header-row"><h2>Store settings</h2></div>
+                {storeSettingsLoading ? <p aria-live="polite">Loading store settings…</p> : (
+                  <form className="product-form" onSubmit={saveStoreSettings}>
+                    <label>Store name<input value={storeSettings.store_name} onChange={(event) => setStoreSettings({ ...storeSettings, store_name: event.target.value })} /></label>
+                    <div className="two-col-inputs">
+                      <label>Support phone<input type="tel" value={storeSettings.support_phone} onChange={(event) => setStoreSettings({ ...storeSettings, support_phone: event.target.value })} /></label>
+                      <label>Support email<input type="email" value={storeSettings.support_email} onChange={(event) => setStoreSettings({ ...storeSettings, support_email: event.target.value })} /></label>
+                    </div>
+                    <label>Delivery information<textarea value={storeSettings.delivery_information} onChange={(event) => setStoreSettings({ ...storeSettings, delivery_information: event.target.value })} maxLength={1000} /></label>
+                    <label>Payment details<textarea value={storeSettings.payment_details} onChange={(event) => setStoreSettings({ ...storeSettings, payment_details: event.target.value })} maxLength={1000} /></label>
+                    <button type="submit" className="primary-admin-btn" disabled={storeSettingsLoading || storeSettingsSaving}>{storeSettingsSaving ? 'Saving…' : 'Save store settings'}</button>
+                    {storeSettingsMessage && <p role="status">{storeSettingsMessage}</p>}
+                  </form>
+                )}
+              </section>
+              <section className="admin-panel-card">
+                <div className="panel-header-row"><h2>Admin account &amp; security</h2></div>
+                <p>Signed in as <strong>{user?.email}</strong></p>
+                <form className="product-form" onSubmit={updateAdminProfile}>
+                  <label>Admin display name<input autoComplete="name" value={adminProfileName} onChange={(event) => setAdminProfileName(event.target.value)} /></label>
+                  <button type="submit" className="primary-admin-btn" disabled={adminSecuritySaving}>{adminSecuritySaving ? 'Updating…' : 'Save admin profile'}</button>
+                </form>
+                <form className="product-form" onSubmit={updateAdminPassword}>
+                  <label>New password<input type="password" autoComplete="new-password" minLength={8} required value={adminPassword.password} onChange={(event) => setAdminPassword({ ...adminPassword, password: event.target.value })} /></label>
+                  <label>Confirm new password<input type="password" autoComplete="new-password" minLength={8} required value={adminPassword.confirm} onChange={(event) => setAdminPassword({ ...adminPassword, confirm: event.target.value })} /></label>
+                  <button type="submit" className="primary-admin-btn" disabled={adminSecuritySaving}>{adminSecuritySaving ? 'Updating…' : 'Update admin password'}</button>
+                  {adminSecurityMessage && <p role="status">{adminSecurityMessage}</p>}
+                </form>
+              </section>
+            </section>
+          )}
         </main>
       )
+    ) : view === 'reviews' ? (
+      <CustomerReviewsPage user={user} products={products} />
     ) : view === 'account' ? (
       <main className="account-page-shell">
         {user ? (
@@ -874,7 +1113,14 @@ export default function DatabaseApp() {
       <div className="product-modal-backdrop" role="presentation" onClick={() => setSelectedProduct(null)}>
         <section className="product-detail-modal" role="dialog" aria-modal="true" aria-label={selectedProduct.name} onClick={(event) => event.stopPropagation()}>
           <button className="product-modal-close" onClick={() => setSelectedProduct(null)} aria-label="Close product details">✕</button>
-          <ProductImage src={selectedProduct.image} alt={selectedProduct.name} />
+          <div className="product-detail-media" aria-label="Product photos and videos">
+            <div className="product-detail-media-item">
+              <ProductImage src={selectedProduct.image} alt={selectedProduct.name} />
+            </div>
+            {(Array.isArray(selectedProduct.video_urls) ? selectedProduct.video_urls : []).slice(0, 3).map((videoUrl) => (
+              <ProductVideo key={videoUrl} src={videoUrl} />
+            ))}
+          </div>
           <div className="product-detail-copy">
             <span className="mini-label">{selectedProduct.category}</span>
             <h2>{selectedProduct.name}</h2>
@@ -888,6 +1134,6 @@ export default function DatabaseApp() {
         </section>
       </div>
     )}
-    <footer className="site-footer"><div className="footer-brand-block"><img className="footer-logo" src="/brand-mark.svg" alt="Everything by Ada" /></div><div className="footer-links"><button className="footer-link" onClick={() => navigate('/')}>Shop</button><button className="footer-link" onClick={() => navigate('/account')}>Account</button>{isAdmin && <button className="footer-link" onClick={() => navigate('/admin')}>Admin</button>}</div></footer>
+    <footer className="site-footer"><div className="footer-brand-block"><img className="footer-logo" src="/brand-mark.svg" alt="Everything by Ada" /></div><div className="footer-links"><button className="footer-link" onClick={() => navigate('/')}>Shop</button><button className="footer-link" onClick={() => navigate('/account')}>Account</button><button className="footer-link desktop-reviews-link" onClick={() => navigate('/reviews')}>Customer reviews</button>{isAdmin && <button className="footer-link" onClick={() => navigate('/admin')}>Admin</button>}</div></footer>
   </div>;
 }
