@@ -527,11 +527,11 @@ export default function DatabaseApp() {
     event.preventDefault();
     if (!supabase || !isAdmin) return;
     const settingRows = [
-      { id: 1, key: 'store_name', value: storeSettings.store_name.trim() },
-      { id: 2, key: 'support_phone', value: storeSettings.support_phone.trim() },
-      { id: 3, key: 'support_email', value: storeSettings.support_email.trim() },
-      { id: 4, key: 'delivery_information', value: storeSettings.delivery_information.trim() },
-      { id: 5, key: 'payment_details', value: storeSettings.payment_details.trim() },
+      { key: 'store_name', value: storeSettings.store_name.trim() },
+      { key: 'support_phone', value: storeSettings.support_phone.trim() },
+      { key: 'support_email', value: storeSettings.support_email.trim() },
+      { key: 'delivery_information', value: storeSettings.delivery_information.trim() },
+      { key: 'payment_details', value: storeSettings.payment_details.trim() },
     ].map((row) => ({ ...row, updated_at: new Date().toISOString() }));
     setStoreSettingsSaving(true);
     setStoreSettingsMessage('');
