@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { supabase } from './lib/supabase';
+import { CART_UPDATED_EVENT, loadUserCart, publishCartUpdate, readCartCache, saveUserCart, writeCartCache } from './lib/cart-storage';
 
-const CART_KEY = 'everythingbyada_cart';
-const CART_OWNER_KEY = 'everythingbyada_cart_owner';
 const fieldStyle = { width: '100%', boxSizing: 'border-box', padding: '12px 14px', border: '1px solid #ded9df', borderRadius: 10, font: 'inherit', background: '#fff' };
 const initialDelivery = { full_name: '', phone: '', address: '', city: '', state: '', postal_code: '', notes: '' };
-const readCart = () => { try { const items = JSON.parse(localStorage.getItem(CART_KEY) || '[]'); return Array.isArray(items) ? items : []; } catch { return []; } };
 const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
 const bankDetails = {
   bankName: import.meta.env.VITE_BANK_TRANSFER_BANK_NAME || 'Opay',
@@ -27,27 +25,41 @@ function CartPage() {
   const [showWhatsAppPopup, setShowWhatsAppPopup] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState('');
   const [receiptFile, setReceiptFile] = useState(null);
+  const [cartOwnerId, setCartOwnerId] = useState('');
+  const [cartLoading, setCartLoading] = useState(true);
   const total = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
 
   useEffect(() => {
     let alive = true;
     let ownerId;
-    const refresh = () => {
+    const refresh = (event) => {
       if (ownerId === undefined) return;
       const expectedOwner = ownerId || 'guest';
-      setCart(localStorage.getItem(CART_OWNER_KEY) === expectedOwner ? readCart() : []);
+      const update = event?.detail;
+      if (update?.source === 'external' && update.ownerId === expectedOwner) setCart(update.items);
+      else setCart(readCartCache(ownerId));
     };
     const loadOwner = async () => {
       const { data, error } = await supabase.auth.getSession();
       if (!alive) return;
       if (error) {
         setMessage(`Could not check your cart session: ${error.message}`);
+        setCartLoading(false);
         return;
       }
       ownerId = data.session?.user?.id || '';
-      refresh();
+      setCartOwnerId(ownerId);
       const user = data.session?.user;
-      if (!user) return;
+      if (!user) {
+        setCart(readCartCache());
+        setCartLoading(false);
+        return;
+      }
+      const userCart = await loadUserCart(supabase, user.id);
+      if (!alive) return;
+      writeCartCache(user.id, userCart);
+      setCart(userCart);
+      setCartLoading(false);
       const { data: profile, error: profileError } = await supabase.from('customer_profiles')
         .select('full_name,phone,address,city')
         .eq('id', user.id)
@@ -66,14 +78,17 @@ function CartPage() {
       }));
     };
     loadOwner().catch((error) => {
-      if (alive) setMessage(`Could not check your cart session: ${error.message}`);
+      if (alive) {
+        setMessage(`Could not load your account cart: ${error.message}`);
+        setCartLoading(false);
+      }
     });
+    window.addEventListener(CART_UPDATED_EVENT, refresh);
     window.addEventListener('storage', refresh);
-    window.addEventListener('everythingbyada-cart-updated', refresh);
     return () => {
       alive = false;
+      window.removeEventListener(CART_UPDATED_EVENT, refresh);
       window.removeEventListener('storage', refresh);
-      window.removeEventListener('everythingbyada-cart-updated', refresh);
     };
   }, []);
 
@@ -82,11 +97,16 @@ function CartPage() {
   };
 
   const changeQuantity = (index, amount) => {
-    const rows = [...document.querySelectorAll('#cart .cart-item')];
-    const control = rows[index]?.querySelectorAll('.cart-controls button')[amount > 0 ? 1 : 0];
-    if (!control) return;
-    control.click();
-    window.setTimeout(() => setCart(readCart()), 250);
+    const updatedCart = cart
+      .map((item, itemIndex) => itemIndex === index ? { ...item, qty: Number(item.qty) + amount } : item)
+      .filter((item) => item.qty > 0);
+    setCart(updatedCart);
+    writeCartCache(cartOwnerId, updatedCart);
+    publishCartUpdate(cartOwnerId, updatedCart);
+    if (!cartOwnerId) return;
+    saveUserCart(supabase, cartOwnerId, updatedCart).catch((error) => {
+      setMessage(`Could not save your account cart: ${error.message}`);
+    });
   };
 
   const submitOrder = async (event) => {
@@ -127,7 +147,13 @@ function CartPage() {
           delivery_notes: delivery.notes,
         });
         if (error) throw error;
-        localStorage.removeItem(CART_KEY);
+        try {
+          await saveUserCart(supabase, user.id, []);
+        } catch (cartError) {
+          setMessage(`Your order was placed, but we could not clear your saved cart: ${cartError.message}`);
+        }
+        writeCartCache(user.id, []);
+        publishCartUpdate(user.id, []);
         setCart([]);
         setPendingOrderId(orderId);
         setShowBankTransferPopup(false);
@@ -220,7 +246,7 @@ function CartPage() {
         <div className="cart-page-layout">
           <section className="cart-page-items" aria-label="Items in your cart">
             <h2>Order items <span>({cart.reduce((sum, item) => sum + Number(item.qty || 0), 0)})</span></h2>
-            {!cart.length && <div className="cart-empty-state"><p>Your cart is empty.</p><a className="primary-btn" href="/">Browse products</a></div>}
+            {cartLoading ? <p aria-live="polite">Loading your saved cart…</p> : !cart.length && <div className="cart-empty-state"><p>Your cart is empty.</p><a className="primary-btn" href="/">Browse products</a></div>}
             {cart.map((item, index) => <article className="cart-page-item" key={item.id}>
               <img src={item.image || '/brand-mark.svg'} alt="" />
               <div className="cart-page-item-info"><strong>{item.name}</strong><span>{formatPrice(item.price)} each</span><div className="cart-page-quantity"><button type="button" onClick={() => changeQuantity(index, -1)} aria-label={`Reduce ${item.name}`}>−</button><span>{item.qty}</span><button type="button" onClick={() => changeQuantity(index, 1)} aria-label={`Increase ${item.name}`}>+</button></div></div>

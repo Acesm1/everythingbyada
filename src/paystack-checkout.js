@@ -1,6 +1,5 @@
 import { supabase } from './lib/supabase';
-
-const CART_KEY = 'everythingbyada_cart';
+import { loadUserCart } from './lib/cart-storage';
 
 function showPaymentMessage(button, text, isError = true) {
   const checkout = button.closest('.checkout-box');
@@ -19,13 +18,12 @@ function showPaymentMessage(button, text, isError = true) {
 async function startCheckout(button) {
   if (!supabase) throw new Error('Checkout is not configured. Please contact the store.');
   const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.access_token) {
+  if (error || !data.session?.access_token || !data.session.user) {
     window.location.href = '/account';
     return;
   }
-  let cart;
-  try { cart = JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { cart = []; }
-  if (!Array.isArray(cart) || !cart.length) throw new Error('Your cart is empty.');
+  const cart = await loadUserCart(supabase, data.session.user.id);
+  if (!cart.length) throw new Error('Your cart is empty.');
 
   const items = cart.map((item) => ({ product_id: item.id, quantity: Number(item.qty) }));
   button.disabled = true;

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { CART_UPDATED_EVENT, loadUserCart, normalizeCartItems, readCartCache, saveUserCart, writeCartCache } from './lib/cart-storage';
 import CustomerReviewsPage, { AdminProductReviews } from './customer-reviews';
 import './storefront.css';
 import './special-category-mobile.css';
 import './maintenance.css';
 
-const CART_KEY = 'everythingbyada_cart';
-const CART_OWNER_KEY = 'everythingbyada_cart_owner';
 const emptyProfile = { full_name: '', phone: '', address: '', city: '' };
 const emptyStoreSettings = { store_name: '', support_phone: '', support_email: '', delivery_information: '', payment_details: '' };
 const accountTabs = ['ACCOUNT DETAILS', 'MY ORDERS', 'PENDING REVIEWS'];
@@ -17,11 +16,6 @@ const accountTabFromUrl = () => {
 const emptyProduct = { name: '', category: '', price: '', old_price: '', stock: '', feature: '', description: '', best_seller: false, video_urls: [] };
 const formatPrice = (value) => `₦${Number(value || 0).toLocaleString('en-NG')}`;
 const routeFromPath = () => window.location.pathname.startsWith('/admin') ? 'admin' : window.location.pathname.startsWith('/account') ? 'account' : window.location.pathname.startsWith('/reviews') ? 'reviews' : 'store';
-const readCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { return []; } };
-const normalizeCart = (items) => Array.isArray(items)
-  ? items.filter((item) => item && item.id != null && Number(item.qty) > 0)
-    .map((item) => ({ ...item, qty: Number(item.qty), price: Number(item.price || 0) }))
-  : [];
 const fromRow = (row) => ({ ...row, price: Number(row.price || 0), oldPrice: Number(row.old_price ?? row.price ?? 0), stock: Number(row.stock || 0), best_seller: Boolean(row.best_seller) });
 
 function ProductVideo({ src }) {
@@ -117,10 +111,11 @@ export default function DatabaseApp() {
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const [cart, setCart] = useState(readCart);
+  const [cart, setCart] = useState([]);
   const [cartStatus, setCartStatus] = useState('loading');
   const [cartOwnerId, setCartOwnerId] = useState('');
   const [cartLoadAttempt, setCartLoadAttempt] = useState(0);
+  const cartSyncRevision = useRef(0);
   const [search, setSearch] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -256,7 +251,7 @@ export default function DatabaseApp() {
     let alive = true;
 
     if (!user || !supabase) {
-      setCart([]);
+      setCart(readCartCache());
       setCartOwnerId('');
       setCartStatus('ready');
       return () => { alive = false; };
@@ -264,16 +259,12 @@ export default function DatabaseApp() {
 
     setCart([]);
     setCartStatus('loading');
-    supabase.from('carts').select('items').eq('user_id', user.id).maybeSingle()
-      .then(({ data, error }) => {
+    const revision = cartSyncRevision.current;
+    loadUserCart(supabase, user.id)
+      .then((items) => {
         if (!alive) return;
-        if (error) {
-          console.error('Could not load the customer cart:', error);
-          setCartStatus('error');
-          setMessage(`Could not load your saved cart: ${error.message}`);
-          return;
-        }
-        setCart(normalizeCart(data?.items));
+        if (cartSyncRevision.current !== revision) return;
+        setCart(items);
         setCartOwnerId(user.id);
         setCartStatus('ready');
         setMessage((current) => current.startsWith('Could not load your saved cart:') ? '' : current);
@@ -292,24 +283,15 @@ export default function DatabaseApp() {
 
   useEffect(() => {
     if (!cartReadyForUser) return undefined;
-    localStorage.setItem(CART_KEY, JSON.stringify(cart));
-    localStorage.setItem(CART_OWNER_KEY, user?.id || 'guest');
-    window.dispatchEvent(new Event('everythingbyada-cart-updated'));
+    writeCartCache(user?.id || '', cart);
+    window.dispatchEvent(new Event(CART_UPDATED_EVENT));
     if (!user || !supabase) return undefined;
 
     let alive = true;
     const timer = window.setTimeout(async () => {
       try {
-        const { error } = await supabase.from('carts').upsert({
-          user_id: user.id,
-          items: cart,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
+        await saveUserCart(supabase, user.id, cart);
         if (!alive) return;
-        if (error) {
-          console.error('Could not save the customer cart:', error);
-          setMessage(`Could not save your cart: ${error.message}`);
-        }
       } catch (error) {
         if (!alive) return;
         console.error('Could not save the customer cart:', error);
@@ -322,6 +304,20 @@ export default function DatabaseApp() {
       window.clearTimeout(timer);
     };
   }, [cart, cartReadyForUser, user?.id]);
+
+  useEffect(() => {
+    const syncExternalCart = (event) => {
+      const update = event.detail;
+      const expectedOwner = user?.id || 'guest';
+      if (authLoading || update?.source !== 'external' || update.ownerId !== expectedOwner) return;
+      cartSyncRevision.current += 1;
+      setCart(normalizeCartItems(update.items));
+      setCartOwnerId(expectedOwner === 'guest' ? '' : expectedOwner);
+      setCartStatus('ready');
+    };
+    window.addEventListener(CART_UPDATED_EVENT, syncExternalCart);
+    return () => window.removeEventListener(CART_UPDATED_EVENT, syncExternalCart);
+  }, [authLoading, user?.id]);
 
   useEffect(() => {
     if (!user || !supabase) {

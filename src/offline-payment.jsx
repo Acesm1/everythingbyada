@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { supabase } from './lib/supabase';
-
-const CART_KEY = 'everythingbyada_cart';
+import { loadUserCart } from './lib/cart-storage';
 const fieldStyle = { width: '100%', boxSizing: 'border-box', padding: '12px 14px', border: '1px solid #ded9df', borderRadius: 10, font: 'inherit', background: '#fff' };
 const initialDelivery = { full_name: '', phone: '', address: '', city: '', state: '', postal_code: '', notes: '' };
 
@@ -51,14 +50,19 @@ function OnlineCheckout() {
 
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     const session = sessionData?.session;
-    if (sessionError || !session?.access_token) {
+    if (sessionError || !session?.access_token || !session.user) {
       window.location.href = '/account';
       return;
     }
 
     let cart;
-    try { cart = JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { cart = []; }
-    if (!Array.isArray(cart) || !cart.length) {
+    try {
+      cart = await loadUserCart(supabase, session.user.id);
+    } catch (error) {
+      setMessage(`Could not load your saved cart: ${error.message}`);
+      return;
+    }
+    if (!cart.length) {
       setMessage('Your cart is empty. Add items before checkout.');
       return;
     }

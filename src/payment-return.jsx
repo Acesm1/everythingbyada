@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { supabase } from './lib/supabase';
+import { publishCartUpdate, saveUserCart, writeCartCache } from './lib/cart-storage';
 
 function PaymentReturn() {
   const [state, setState] = useState({ loading: true, error: '', orderId: '' });
@@ -20,8 +21,9 @@ function PaymentReturn() {
         return;
       }
       const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) {
+      const session = sessionData.session;
+      const token = session?.access_token;
+      if (!token || !session.user) {
         if (alive) setState({ loading: false, error: 'Sign in to the same customer account to verify this payment.', orderId: '' });
         return;
       }
@@ -34,8 +36,15 @@ function PaymentReturn() {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Payment could not be verified.');
-        localStorage.removeItem('everythingbyada_cart');
-        if (alive) setState({ loading: false, error: '', orderId: result.order_id || '' });
+        let cleanupError = '';
+        try {
+          await saveUserCart(supabase, session.user.id, []);
+          writeCartCache(session.user.id, []);
+          publishCartUpdate(session.user.id, []);
+        } catch (error) {
+          cleanupError = `Payment was confirmed, but we could not clear your saved cart: ${error.message}`;
+        }
+        if (alive) setState({ loading: false, error: cleanupError, orderId: result.order_id || '' });
       } catch (error) {
         if (alive) setState({ loading: false, error: error.message || 'Payment could not be verified.', orderId: '' });
       }
